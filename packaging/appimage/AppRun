@@ -1,0 +1,95 @@
+#!/bin/sh
+# LDM AppImage entry point. One image, several roles, chosen by the name it was started under
+# ($ARGV0 = the symlink the user/browser ran) or by the first argument:
+#   LDM-x86_64.AppImage [ldm-gui]            GUI (default)
+#   LDM-x86_64.AppImage ldm <args>           CLI          (or a symlink named ldm)
+#   LDM-x86_64.AppImage ldmd [--ws]          daemon       (or a symlink named ldmd)
+#   LDM-x86_64.AppImage ldm-native-host      browser native-messaging host (also auto-detected from
+#                                            the browser's arguments: chrome-extension://… origin, or
+#                                            Firefox's <manifest.json> <addon id>)
+#   LDM-x86_64.AppImage --install-integration | --remove-integration
+#        per-user desktop entry, icon and native-messaging manifests pointing at this image
+set -eu
+HERE="$(dirname "$(readlink -f "$0")")"
+LIB="$HERE/usr/lib/ldm"
+LINKS="${XDG_DATA_HOME:-$HOME/.local/share}/ldm/appimage"
+
+role=""
+case "$(basename "${ARGV0:-$0}")" in
+  ldmd|ldm|ldm-native-host|ldm-gui) role="$(basename "${ARGV0:-$0}")" ;;
+esac
+if [ -z "$role" ]; then
+  case "${1:-}" in
+    ldmd|ldm|ldm-native-host|ldm-gui) role="$1"; shift ;;
+    --install-integration|--remove-integration) role="$1"; shift ;;
+    chrome-extension://*) role=ldm-native-host ;;
+    *.json) [ $# -ge 2 ] && [ -f "$1" ] && role=ldm-native-host ;;
+  esac
+fi
+role="${role:-ldm-gui}"
+
+# A daemon started from a mounted image must not live inside the GUI's mount (it disappears when
+# the GUI exits): start it through a per-user symlink to the image file, which mounts it anew.
+if [ -n "${APPIMAGE:-}" ]; then
+  mkdir -p "$LINKS"
+  for n in ldmd ldm ldm-native-host; do
+    [ "$(readlink "$LINKS/$n" 2>/dev/null || true)" = "$APPIMAGE" ] || ln -sfn "$APPIMAGE" "$LINKS/$n"
+  done
+  export LDM_LDMD="$LINKS/ldmd"
+else
+  export LDM_LDMD="$HERE/usr/bin/ldmd"
+fi
+
+install_integration() {
+  [ -n "${APPIMAGE:-}" ] || { echo "run this from the .AppImage file" >&2; exit 2; }
+  host="$LINKS/ldm-native-host"
+  ext_id="$(cat "$LIB/EXTENSION_ID")"
+  data="${XDG_DATA_HOME:-$HOME/.local/share}"; cfg="${XDG_CONFIG_HOME:-$HOME/.config}"
+  for d in "$cfg/google-chrome/NativeMessagingHosts" "$cfg/chromium/NativeMessagingHosts" \
+           "$cfg/microsoft-edge/NativeMessagingHosts" "$cfg/BraveSoftware/Brave-Browser/NativeMessagingHosts"; do
+    mkdir -p "$d"
+    sed -e "s|@HOST_PATH@|$host|" -e "s|@EXTENSION_ID@|$ext_id|" "$LIB/native-messaging/chrome.json.in" > "$d/io.github.wzk4work.ldm.browser_host.json"
+  done
+  mkdir -p "$HOME/.mozilla/native-messaging-hosts"
+  sed -e "s|@HOST_PATH@|$host|" "$LIB/native-messaging/firefox.json.in" > "$HOME/.mozilla/native-messaging-hosts/io.github.wzk4work.ldm.browser_host.json"
+  mkdir -p "$data/applications" "$data/icons/hicolor/128x128/apps"
+  sed -e "s|^Exec=.*|Exec=\"$APPIMAGE\"|" -e "s|^TryExec=.*||" "$HERE/ldm.desktop" > "$data/applications/ldm.desktop"
+  cp "$HERE/ldm.png" "$data/icons/hicolor/128x128/apps/ldm.png"
+  echo "installed: desktop entry, icon, native-messaging manifests -> $host"
+  echo "browser extension (load unpacked): $LIB/extension is inside the image; extract it with --appimage-extract"
+}
+
+remove_integration() {
+  data="${XDG_DATA_HOME:-$HOME/.local/share}"; cfg="${XDG_CONFIG_HOME:-$HOME/.config}"
+  for f in "$cfg"/google-chrome/NativeMessagingHosts "$cfg"/chromium/NativeMessagingHosts \
+           "$cfg"/microsoft-edge/NativeMessagingHosts "$cfg"/BraveSoftware/Brave-Browser/NativeMessagingHosts \
+           "$HOME/.mozilla/native-messaging-hosts"; do
+    m="$f/io.github.wzk4work.ldm.browser_host.json"
+    # only manifests that point at this image's link (never a system/native install)
+    if [ -f "$m" ] && grep -q "$LINKS/ldm-native-host" "$m"; then rm -f "$m"; fi
+  done
+  if [ -f "$data/applications/ldm.desktop" ] && grep -q "AppImage" "$data/applications/ldm.desktop"; then
+    rm -f "$data/applications/ldm.desktop" "$data/icons/hicolor/128x128/apps/ldm.png"
+  fi
+  rm -rf "$LINKS"
+  echo "removed LDM AppImage integration"
+}
+
+case "$role" in
+  ldmd) exec "$HERE/usr/bin/ldmd" "$@" ;;
+  ldm) PATH="$HERE/usr/bin:$PATH" exec "$HERE/usr/bin/ldm" "$@" ;;
+  ldm-native-host) exec "$LIB/ldm-native-host" "$@" ;;
+  --install-integration) install_integration ;;
+  --remove-integration) remove_integration ;;
+  ldm-gui)
+    # the bundled Python/Qt only for the GUI process; sitecustomize.py restores the caller's
+    # values in os.environ so children (ldm, ldmd -> ffmpeg / yt-dlp) never inherit the bundle
+    for v in LD_LIBRARY_PATH PYTHONHOME PYTHONPATH PYTHONNOUSERSITE; do
+      if eval "[ -n \"\${$v+x}\" ]"; then eval "export LDM_AI_SAVED_$v=\"\$$v\""; fi
+    done
+    export LDM_AI_RESTORE=1
+    PY="$LIB/python"
+    export LD_LIBRARY_PATH="$PY/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export PYTHONHOME="$PY" PYTHONPATH="$LIB/gui:$LIB/pylib" PYTHONNOUSERSITE=1
+    PATH="$HERE/usr/bin:$PATH" exec "$PY/bin/python3" -m ldm_gui "$@" ;;
+esac

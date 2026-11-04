@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""Fake yt-dlp for LDM tests (no network).
+
+Understands the subset of options LDM passes. Behaviour knobs (environment):
+  FAKE_YTDLP_MODE   ok (default) | fail | bot | drm | badjson | live | outdated
+                    (outdated: -J works, the download fails like an extractor broken by a
+                    site change)
+                    (live: like yt-dlp on a live stream, hands the download to a child
+                    "ffmpeg" process that inherits stdout/stderr, prints no progress
+                    and never finishes; the child's pid goes to FAKE_YTDLP_CHILD_PID)
+                    liveff: a real live recording – a real ffmpeg child writes an endless
+                    lavfi test stream (MPEG-TS) to the .part file and prints its `time=`
+                    stats; on SIGINT (Ctrl-C) the fake does what yt-dlp's FFmpegFD does:
+                    sends `q` to ffmpeg, waits, remuxes to the final file, prints LDMF and
+                    exits 0. -J reports live_status=is_live for live / liveff.
+  FAKE_YTDLP_STOP   liveff only: "crash" = after stopping ffmpeg exit 1 without a final
+                    file (LDM must finalise the .part itself)
+  FAKE_YTDLP_LOG    append each argv as one JSON line
+  FAKE_YTDLP_SIZE   bytes per stream (default 200000)
+  FAKE_YTDLP_DELAY  seconds per 1/20 chunk (default 0.01)
+  FAKE_YTDLP_VERSION
+"""
+import json, os, sys, time, re, pathlib
+
+argv = sys.argv[1:]
+if os.environ.get("FAKE_YTDLP_LOG"):
+    with open(os.environ["FAKE_YTDLP_LOG"], "a") as f:
+        f.write(json.dumps(argv) + "\n")
+mode = os.environ.get("FAKE_YTDLP_MODE", "ok")
+
+if "--version" in argv:
+    print(os.environ.get("FAKE_YTDLP_VERSION", "2026.10.10"))
+    sys.exit(0)
+if "-U" in argv:
+    print("Latest version: 2026.10.10, Current version: 2026.10.10\nyt-dlp is up to date (2026.10.10)")
+    sys.exit(0)
+
+def opt(name, many=False):
+    out = []
+    for i, a in enumerate(argv):
+        if a == name and i + 1 < len(argv):
+            out.append(argv[i + 1])
+    return out if many else (out[-1] if out else None)
+
+url = argv[argv.index("--") + 1] if "--" in argv else argv[-1]
+
+def die(msg, code=1):
+    print(f"ERROR: {msg}", file=sys.stderr)
+    sys.exit(code)
+
+if mode == "bot":
+    die("[youtube] x: Sign in to confirm you’re not a bot. Use --cookies-from-browser or --cookies for the authentication.")
+if mode == "drm":
+    die("[generic] This video is DRM protected")
+if mode == "outdated" and "-J" not in argv:
+    die("[youtube] x: nsig extraction failed: Some formats may be missing. Confirm you are on the latest version using  yt-dlp -U")
+
+if "-J" in argv:
+    if mode == "badjson":
+        print("{not json")
+        sys.exit(0)
+    if "--flat-playlist" in argv and "list=" in url:
+        entries = [{"_type": "url", "url": f"https://www.youtube.com/watch?v=item{i}", "title": f"Item {i}"} for i in range(1, 4)]
+        print(json.dumps({"_type": "playlist", "title": "Fake list", "entries": entries}))
+        sys.exit(0)
+    info = json.load(open(pathlib.Path(__file__).with_name("ytdlp-info.json")))
+    if "youtube" not in url and "youtu.be" not in url:
+        info["title"] = "Fallback video"
+        info["extractor_key"] = "Generic"
+    info["webpage_url"] = url
+    if mode in ("live", "liveff"):
+        info.update(is_live=True, live_status="is_live", duration=None, title="Fake live")
+    print(json.dumps(info))
+    sys.exit(0)
+
+# ---- download
+home = next((p[5:] for p in opt("-P", True) if p.startswith("home:")), ".")
+temp = next((p[5:] for p in opt("-P", True) if p.startswith("temp:")), home)
+tmpl = opt("-o") or "%(title)s.%(ext)s"
+fmt = opt("-f") or "b"
+container = opt("--merge-output-format") or "mp4"
+size = int(os.environ.get("FAKE_YTDLP_SIZE", "200000"))
+delay = float(os.environ.get("FAKE_YTDLP_DELAY", "0.01"))
+if "--progress-template" not in argv or "--newline" not in argv:
+    die("fake: LDM must ask for machine-readable progress")
+audio_only = fmt.startswith("ba")
+streams = [("140", "m4a")] if audio_only else [("299", "mp4"), ("140", "m4a")]
+stem = tmpl.replace("%%", "\0").replace(".%(ext)s", "").replace("\0", "%")
+os.makedirs(home, exist_ok=True)
+os.makedirs(temp, exist_ok=True)
+print(f"[youtube] Extracting URL: {url}")
+if mode == "live":
+    import subprocess
+    part = os.path.join(temp, f"{stem}.{container}.part")
+    code = "import time,sys\nf=open(sys.argv[1],'ab')\nwhile True:\n f.write(b'x'*1000); f.flush(); time.sleep(0.05)\n"
+    child = subprocess.Popen([sys.executable, "-c", code, part])
+    if os.environ.get("FAKE_YTDLP_CHILD_PID"):
+        pathlib.Path(os.environ["FAKE_YTDLP_CHILD_PID"]).write_text(str(child.pid))
+    print(f"[download] Destination: {part}", flush=True)
+    child.wait()
+    sys.exit(0)
+if mode == "liveff":
+    import subprocess, signal
+    part = os.path.join(temp, f"{stem}.{container}.part")
+    out = os.path.join(home, f"{stem}.{container}")
+    ff = subprocess.Popen(
+        ["ffmpeg", "-hide_banner", "-y", "-re",
+         "-f", "lavfi", "-i", "testsrc=size=160x120:rate=15",
+         "-f", "lavfi", "-i", "sine=frequency=440:sample_rate=22050",
+         "-c:v", "libx264", "-preset", "ultrafast", "-g", "15", "-c:a", "aac", "-b:a", "48k",
+         "-f", "mpegts", part],
+        stdin=subprocess.PIPE)
+    if os.environ.get("FAKE_YTDLP_CHILD_PID"):
+        pathlib.Path(os.environ["FAKE_YTDLP_CHILD_PID"]).write_text(str(ff.pid))
+    print(f"[download] Destination: {part}", flush=True)
+    try:
+        ff.wait()
+    except KeyboardInterrupt:
+        try:
+            ff.communicate(b"q", timeout=20)
+        except Exception:
+            ff.kill()
+            ff.wait()
+        if os.environ.get("FAKE_YTDLP_STOP") == "crash":
+            die("interrupted by user", 1)
+        print(f"[FixupM3u8] Fixing MPEG-TS in MP4 container of \"{out}\"", flush=True)
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-y", "-i", part, "-c", "copy", out], check=True)
+        os.remove(part)
+        print(f"LDMF {out}", flush=True)
+        sys.exit(0)
+    die("live stream ended unexpectedly")
+done = []
+for fid, ext in streams:
+    final = os.path.join(temp, f"{stem}.f{fid}.{ext}")
+    part = final + ".part"
+    have = os.path.getsize(part) if os.path.exists(part) and "--continue" in argv else 0
+    if have:
+        print(f"[download] Resuming download at byte {have}")
+    with open(part, "ab" if have else "wb") as f:
+        step = max(1, size // 20)
+        pos = have
+        while pos < size:
+            if mode == "fail" and pos > size // 2:
+                die("unable to download video data: HTTP Error 403: Forbidden")
+            n = min(step, size - pos)
+            f.write(bytes([(pos + i) % 251 for i in range(n)]))
+            f.flush()
+            pos += n
+            print(f"LDMP {pos} {size} NA 1000000.0 1 downloading {fid}", flush=True)
+            time.sleep(delay)
+    os.rename(part, final)
+    print(f"LDMP {size} {size} NA NA 0 finished {fid}", flush=True)
+    done.append(final)
+out_ext = "m4a" if audio_only else container
+out = os.path.join(home, f"{stem}.{out_ext}")
+if len(done) > 1:
+    print(f'[Merger] Merging formats into "{out}"', flush=True)
+with open(out, "wb") as o:
+    for d in done:
+        o.write(open(d, "rb").read())
+        os.remove(d)
+print(f"LDMF {out}", flush=True)

@@ -1,0 +1,16 @@
+[package]
+name = "ldm-native-host"
+description = "LDM native messaging host (stdio <-> ldmd relay)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ldm-native-host"
+path = "src/main.rs"
+
+[dependencies]
+ldm-ipc = { path = "../ldm-ipc", default-features = false }
+serde_json.workspace = true
+anyhow.workspace = true

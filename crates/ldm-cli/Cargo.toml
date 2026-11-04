@@ -1,0 +1,23 @@
+[package]
+name = "ldm-cli"
+description = "ldm – command line client for ldmd (plus standalone get/hls/dash)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ldm"
+path = "src/main.rs"
+
+[dependencies]
+ldm-ipc = { path = "../ldm-ipc" }
+ldm-core = { path = "../ldm-core" }
+serde_json.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
+url = "2"

@@ -1,0 +1,107 @@
+{
+  "extName": {
+    "message": "LDM 下载集成"
+  },
+  "extDescription": {
+    "message": "把浏览器下载与网页视频交给 LDM（Linux 下载管理器）"
+  },
+  "hostConnected": {
+    "message": "已连接 LDM"
+  },
+  "hostDisconnected": {
+    "message": "未连接 LDM"
+  },
+  "menuDownloadLink": {
+    "message": "用 LDM 下载链接"
+  },
+  "menuDownloadMedia": {
+    "message": "用 LDM 下载此视频/音频"
+  },
+  "menuDownloadAll": {
+    "message": "用 LDM 下载页面全部链接"
+  },
+  "menuDownloadSelection": {
+    "message": "用 LDM 下载选中文本中的链接"
+  },
+  "buttonDownloadVideo": {
+    "message": "用 LDM 下载"
+  },
+  "popupNoMedia": {
+    "message": "当前页面未发现媒体"
+  },
+  "popupIntercept": {
+    "message": "接管浏览器下载"
+  },
+  "popupReconnect": {
+    "message": "重新连接"
+  },
+  "popupDownload": {
+    "message": "下载"
+  },
+  "popupPauseTab": {
+    "message": "在此标签页暂停接管"
+  },
+  "popupDisableSite": {
+    "message": "在此站点禁用："
+  },
+  "qualityBest": {
+    "message": "最佳质量"
+  },
+  "qualityAudioOnly": {
+    "message": "仅音频"
+  },
+  "qualityLoading": {
+    "message": "正在获取清晰度…"
+  },
+  "linksTitle": {
+    "message": "用 LDM 下载页面链接"
+  },
+  "linksSelectAll": {
+    "message": "全选"
+  },
+  "linksSelectNone": {
+    "message": "全不选"
+  },
+  "linksDownload": {
+    "message": "下载选中"
+  },
+  "linksColFile": {
+    "message": "文件"
+  },
+  "linksColText": {
+    "message": "链接文字"
+  },
+  "linksColType": {
+    "message": "类型"
+  },
+  "linksFilter": {
+    "message": "按地址或文字过滤"
+  },
+  "linksTypeAll": {
+    "message": "全部类型"
+  },
+  "linksTypeFiles": {
+    "message": "仅文件（排除网页）"
+  },
+  "popupProxySync": {
+    "message": "同步浏览器代理到 LDM"
+  },
+  "popupProxySynced": {
+    "message": "已同步浏览器代理"
+  },
+  "popupAdvanced": {
+    "message": "高级"
+  },
+  "popupPageHooks": {
+    "message": "页面钩子：发现页面脚本请求的视频清单，并观察 MSE 播放器（编码、正在播放哪个流；刷新页面后生效）"
+  },
+  "menuDownloadYtdlp": {
+    "message": "用 yt-dlp 下载"
+  },
+  "popupTryYtdlp": {
+    "message": "未检测到视频 – 试试 yt-dlp"
+  },
+  "popupYtdlpPage": {
+    "message": "此页视频"
+  }
+}

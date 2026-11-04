@@ -1,0 +1,107 @@
+{
+  "extName": {
+    "message": "LDM Integration"
+  },
+  "extDescription": {
+    "message": "Hand browser downloads and web video to LDM (Linux Download Manager)"
+  },
+  "hostConnected": {
+    "message": "Connected to LDM"
+  },
+  "hostDisconnected": {
+    "message": "LDM not connected"
+  },
+  "menuDownloadLink": {
+    "message": "Download link with LDM"
+  },
+  "menuDownloadMedia": {
+    "message": "Download this video/audio with LDM"
+  },
+  "menuDownloadAll": {
+    "message": "Download all links with LDM"
+  },
+  "menuDownloadSelection": {
+    "message": "Download links in selection with LDM"
+  },
+  "buttonDownloadVideo": {
+    "message": "Download with LDM"
+  },
+  "popupNoMedia": {
+    "message": "No media found on this page"
+  },
+  "popupIntercept": {
+    "message": "Take over browser downloads"
+  },
+  "popupReconnect": {
+    "message": "Reconnect"
+  },
+  "popupDownload": {
+    "message": "Download"
+  },
+  "popupPauseTab": {
+    "message": "Pause capture in this tab"
+  },
+  "popupDisableSite": {
+    "message": "Disable on this site:"
+  },
+  "qualityBest": {
+    "message": "Best quality"
+  },
+  "qualityAudioOnly": {
+    "message": "Audio only"
+  },
+  "qualityLoading": {
+    "message": "Loading qualities…"
+  },
+  "linksTitle": {
+    "message": "Download page links with LDM"
+  },
+  "linksSelectAll": {
+    "message": "Select all"
+  },
+  "linksSelectNone": {
+    "message": "Select none"
+  },
+  "linksDownload": {
+    "message": "Download selected"
+  },
+  "linksColFile": {
+    "message": "File"
+  },
+  "linksColText": {
+    "message": "Link text"
+  },
+  "linksColType": {
+    "message": "Type"
+  },
+  "linksFilter": {
+    "message": "Filter by URL or text"
+  },
+  "linksTypeAll": {
+    "message": "All types"
+  },
+  "linksTypeFiles": {
+    "message": "Files only (no pages)"
+  },
+  "popupProxySync": {
+    "message": "Share browser proxy with LDM"
+  },
+  "popupProxySynced": {
+    "message": "Browser proxy shared"
+  },
+  "popupAdvanced": {
+    "message": "Advanced"
+  },
+  "popupPageHooks": {
+    "message": "Page hook: find playlists requested by page scripts and observe MSE players (codecs, which stream plays; reload the page)"
+  },
+  "menuDownloadYtdlp": {
+    "message": "Download with yt-dlp"
+  },
+  "popupTryYtdlp": {
+    "message": "Nothing detected – try yt-dlp"
+  },
+  "popupYtdlpPage": {
+    "message": "This page's video"
+  }
+}

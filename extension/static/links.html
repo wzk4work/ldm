@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>LDM</title>
+<style>
+  body { font: 13px system-ui, sans-serif; margin: 16px; color: #202124; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .bar { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { border-bottom: 1px solid #eee; padding: 4px 6px; text-align: left; }
+  td.url { max-width: 640px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .muted { color: #5f6368; }
+</style>
+</head>
+<body>
+  <h1 data-i18n="linksTitle"></h1>
+  <div class="muted" id="page"></div>
+  <div class="bar">
+    <input id="filter" size="30">
+    <select id="type"></select>
+    <button id="all" data-i18n="linksSelectAll"></button>
+    <button id="none" data-i18n="linksSelectNone"></button>
+    <span id="count" class="muted"></span>
+    <button id="go" data-i18n="linksDownload"></button>
+  </div>
+  <table><thead><tr><th></th><th data-i18n="linksColFile"></th><th data-i18n="linksColText"></th><th data-i18n="linksColType"></th></tr></thead><tbody id="rows"></tbody></table>
+  <script src="links.js"></script>
+</body>
+</html>

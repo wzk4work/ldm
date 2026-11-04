@@ -1,0 +1,18 @@
+[Unit]
+Description=LDM download daemon (user session)
+Documentation=file://@PREFIX@/share/doc/ldm/README.md
+After=default.target
+
+[Service]
+Type=simple
+ExecStart=@BINDIR@/ldmd
+Restart=on-failure
+RestartSec=3
+# graceful stop: running jobs persist their state and resume on next start
+KillSignal=SIGTERM
+TimeoutStopSec=20
+NoNewPrivileges=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,7 @@
+{
+  "name": "io.github.wzk4work.ldm.browser_host",
+  "description": "LDM native messaging host",
+  "path": "@HOST_PATH@",
+  "type": "stdio",
+  "allowed_origins": ["chrome-extension://@EXTENSION_ID@/"]
+}

@@ -1,0 +1,32 @@
+# build output
+/target
+/dist
+/extension/dist
+/extension/dist-store
+/extension/dist-test
+/extension/node_modules
+*.AppImage
+*.flatpak
+*.deb
+/build-dir
+/repo
+.flatpak-builder/
+/cargo
+
+# Python
+/.venv
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# editors / OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# local secrets and keys (never commit)
+*.pem
+.env

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.wzk4work.LDM</id>
+  <name>LDM Download Manager</name>
+  <summary>Multi-connection downloader with browser video detection</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT AND LGPL-2.1-or-later</project_license>
+  <developer id="io.github.wzk4work">
+    <name>Nicolas</name>
+  </developer>
+  <description>
+    <p>LDM is a Linux download manager. It splits HTTP(S)/FTP downloads into multiple
+      connections, resumes interrupted transfers, schedules a queue, and works with a browser
+      extension that detects HLS, DASH and progressive video on web pages.</p>
+    <p>The browser extension and native messaging need host-side integration; see the README.</p>
+  </description>
+  <url type="homepage">https://github.com/wzk4work/ldm</url>
+  <url type="bugtracker">https://github.com/wzk4work/ldm/issues</url>
+  <launchable type="desktop-id">io.github.wzk4work.LDM.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <categories>
+    <category>Network</category>
+    <category>FileTransfer</category>
+  </categories>
+  <releases>
+    <release version="0.9.0" date="2026-10-25"/>
+  </releases>
+</component>

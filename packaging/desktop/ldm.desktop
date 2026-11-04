@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=LDM Download Manager
+Name[zh_CN]=LDM 下载管理器
+Comment=Multi-connection downloader with browser video sniffing
+Comment[zh_CN]=多连接下载与网页视频嗅探
+Exec=@BINDIR@/ldm-gui
+Icon=ldm
+Terminal=false
+Categories=Network;FileTransfer;
+Keywords=download;video;hls;dash;下载;
+StartupNotify=true

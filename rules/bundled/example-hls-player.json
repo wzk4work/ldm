@@ -1,0 +1,10 @@
+{
+  "id": "example-hls-player",
+  "version": "1.0.0",
+  "matchHosts": ["video.example.com"],
+  "detect": {
+    "urlPatterns": ["**/playlist.m3u8*"],
+    "elementSelectors": ["video#player"]
+  },
+  "prefer": { "maxHeight": 1080, "container": "mp4" }
+}

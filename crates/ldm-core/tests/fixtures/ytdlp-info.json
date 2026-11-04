@@ -1,0 +1,95 @@
+{
+ "id": "aqz-KE-bpKQ",
+ "title": "Test clip: Big Buck Bunny (trailer) | 100% free",
+ "duration": 33.0,
+ "webpage_url": "https://www.youtube.com/watch?v=aqz-KE-bpKQ",
+ "extractor": "youtube",
+ "extractor_key": "Youtube",
+ "is_live": false,
+ "formats": [
+  {
+   "format_id": "sb0",
+   "ext": "mhtml",
+   "vcodec": "none",
+   "acodec": "none",
+   "height": 45,
+   "width": 80
+  },
+  {
+   "format_id": "251",
+   "ext": "webm",
+   "vcodec": "none",
+   "acodec": "opus",
+   "tbr": 120.1,
+   "filesize": 500000
+  },
+  {
+   "format_id": "140",
+   "ext": "m4a",
+   "vcodec": "none",
+   "acodec": "mp4a.40.2",
+   "tbr": 129.4,
+   "filesize": 530000
+  },
+  {
+   "format_id": "18",
+   "ext": "mp4",
+   "vcodec": "avc1.42001E",
+   "acodec": "mp4a.40.2",
+   "height": 360,
+   "fps": 25,
+   "tbr": 500,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "136",
+   "ext": "mp4",
+   "vcodec": "avc1.4d401f",
+   "acodec": "none",
+   "height": 720,
+   "fps": 25,
+   "tbr": 1500,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "247",
+   "ext": "webm",
+   "vcodec": "vp09.00.31.08",
+   "acodec": "none",
+   "height": 720,
+   "fps": 25,
+   "tbr": 1400,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "299",
+   "ext": "mp4",
+   "vcodec": "avc1.64002a",
+   "acodec": "none",
+   "height": 1080,
+   "fps": 60,
+   "tbr": 4500,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "303",
+   "ext": "webm",
+   "vcodec": "vp09.00.41.08",
+   "acodec": "none",
+   "height": 1080,
+   "fps": 60,
+   "tbr": 4300,
+   "dynamic_range": "SDR"
+  },
+  {
+   "format_id": "337",
+   "ext": "webm",
+   "vcodec": "vp09.02.51.10",
+   "acodec": "none",
+   "height": 2160,
+   "fps": 60,
+   "tbr": 20000,
+   "dynamic_range": "HDR10"
+  }
+ ]
+}

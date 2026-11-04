@@ -1,0 +1,8 @@
+PySide6>=6.5
+websockets>=12
+pytest>=8
+ruff>=0.6
+selenium>=4.20  # tests/e2e/test_firefox.py (skipped without firefox + geckodriver)
+pyftpdlib>=2.0  # tests/e2e/test_ftps.py (FTPS server)
+pyopenssl>=24  # pyftpdlib TLS_FTPHandler
+cryptography>=42  # test CA / certificates

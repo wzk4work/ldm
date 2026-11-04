@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "__MSG_extName__",
+  "description": "__MSG_extDescription__",
+  "version": "0.9.0",
+  "default_locale": "zh_CN",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "LDM",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://*/*",
+        "https://*/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "all_frames": true,
+      "run_at": "document_idle"
+    }
+  ],
+  "permissions": [
+    "nativeMessaging",
+    "webRequest",
+    "downloads",
+    "cookies",
+    "tabs",
+    "storage",
+    "contextMenus",
+    "notifications",
+    "scripting"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuBwFpYAlaQl4hOQ2cnMt5N7FmHfckcHBbtGUtm5iJR8RxilX+1idoP/apXl5/+SAEMjavFR8LeYzcRLdWHmpoiTuaNoFHm6m489rFIXnv2qafZjAux6zaEIzG8BxP5t7FVrlx96+Dn0YXeyBhuuMTntoCIvZPve2FvcYdV3XrJ6U326BJsYBu87RWJ3QZWo5hRnpO+DIzamP6d89XBEU3iD8VH9pxpJrTcEUGCfkuCVX9t5OCQW3+a2sit7JcIAvg3OEMLTOIseo0oTh5zzOAAQUXqc7OWLx/tEk9oKgpTfV2gy1oWHii5v3ATri0ePcTNXg1dMmuW1LPQfq1Ggb6wIDAQAB",
+  "minimum_chrome_version": "110",
+  "optional_permissions": [
+    "proxy"
+  ]
+}

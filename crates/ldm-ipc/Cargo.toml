@@ -1,0 +1,17 @@
+[package]
+name = "ldm-ipc"
+description = "LDM shared protocol types: JSON envelopes and native-messaging framing"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, optional = true }
+
+[features]
+default = ["async"]
+async = ["dep:tokio"]
