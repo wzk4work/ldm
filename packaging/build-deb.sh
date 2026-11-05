@@ -10,13 +10,17 @@ BIN_SRC="${1:-$ROOT/target/release}"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 "$ROOT/packaging/stage-system.sh" "$STAGE" "$BIN_SRC"
+# lowest glibc the binaries run on = the newest GLIBC_x.y symbol version they import
+GLIBC_MIN="$(objdump -T "$BIN_SRC"/ldmd "$BIN_SRC"/ldm "$BIN_SRC"/ldm-native-host 2>/dev/null \
+  | grep -o 'GLIBC_[0-9][0-9.]*' | sed 's/GLIBC_//' | sort -uV | tail -1 || true)"
+DEPENDS="libc6${GLIBC_MIN:+ (>= $GLIBC_MIN)}, libgcc-s1"
 install -d "$STAGE/DEBIAN"
 cat > "$STAGE/DEBIAN/control" <<EOC
 Package: ldm
 Version: $VERSION
 Architecture: $ARCH
 Maintainer: $MAINTAINER
-Depends: libc6
+Depends: $DEPENDS
 Recommends: ffmpeg, python3-pyside6.qtwidgets | python3-pyside6, python3-pyside6.qtnetwork | python3-pyside6, python3-pyside6.qtdbus | python3-pyside6
 Suggests: gpg
 Section: net
