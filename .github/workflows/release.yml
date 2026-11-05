@@ -227,7 +227,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           pattern: release-*
-          path: assets
+          path: release-assets
           merge-multiple: true
       - name: FFmpeg source of the Flatpak build (LGPL), SHA256SUMS, release notes
         run: |
@@ -238,13 +238,13 @@ jobs:
           print(m.group(1), m.group(2))
           PY
           )
-          curl -fsSL -o "assets/$(basename "$url")" "$url"
-          echo "$sha  assets/$(basename "$url")" | sha256sum -c -
+          curl -fsSL -o "release-assets/$(basename "$url")" "$url"
+          echo "$sha  release-assets/$(basename "$url")" | sha256sum -c -
           scripts/release-notes.sh "$V" > notes.md
-          cd assets && sha256sum -- * > ../SHA256SUMS && mv ../SHA256SUMS . && cat SHA256SUMS
+          cd release-assets && sha256sum -- * > ../SHA256SUMS && mv ../SHA256SUMS . && cat SHA256SUMS
       - name: Expected assets
         run: |
-          cd assets
+          cd release-assets
           for f in "ldm_${V}_amd64.deb" "ldm_${V}_arm64.deb" "ldm-${V}-1.x86_64.rpm" "ldm-${V}-1.aarch64.rpm" \
                    "LDM-${V}-x86_64.AppImage" "LDM-${V}-aarch64.AppImage" "LDM-${V}-x86_64.flatpak" "LDM-${V}-aarch64.flatpak" \
                    "ldm-extension-chrome-${V}.zip" "ldm-extension-firefox-${V}.zip" SHA256SUMS; do
@@ -256,7 +256,7 @@ jobs:
         with:
           name: release-assembled
           path: |
-            assets
+            release-assets
             notes.md
           if-no-files-found: error
 
@@ -277,6 +277,6 @@ jobs:
       - name: gh release create
         run: |
           gh release create "$GITHUB_REF_NAME" --verify-tag --latest \
-            --title "LDM $V" --notes-file notes.md assets/*
+            --title "LDM $V" --notes-file notes.md release-assets/*
           gh release view "$GITHUB_REF_NAME" --json url,isDraft,isPrerelease,assets \
             --jq '"\(.url) draft=\(.isDraft) prerelease=\(.isPrerelease)", (.assets[] | "\(.name) \(.size)")'
