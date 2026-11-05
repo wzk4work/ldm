@@ -21,7 +21,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
 )
 
-from ldm_gui.model import CATEGORIES, human, job_name
+from ldm_gui.i18n import queue_label, tr
+from ldm_gui.model import CATEGORIES, STATE_ZH, human, job_name
 
 SUBDIR = {
     "video": "Video",
@@ -111,11 +112,11 @@ def describe_ad_reasons(reasons: list[str]) -> str:
     out = []
     for r in reasons:
         code, _, detail = r.partition(":")
-        t = AD_REASON_TEXT.get(code, code)
+        t = tr(AD_REASON_TEXT.get(code, code))
         if code == "alt-of":  # alt-of:<url of the main entry> → its file name
             detail = next((p for p in reversed(detail.split("?")[0].split("#")[0].split("/")) if p), detail)
-        out.append(f"{t}（{detail}）" if detail else t)
-    return "；".join(out)
+        out.append(f"{t}{tr('（')}{detail}{tr('）')}" if detail else t)
+    return tr("；").join(out)
 
 
 class DownloadInfoDialog(QDialog):
@@ -145,7 +146,7 @@ class DownloadInfoDialog(QDialog):
         self.desc.setPlaceholderText("可选：备注（显示在列表“描述”列）")
         self.queue = QComboBox()
         for q in queues or [{"id": "main", "name": "主队列"}]:
-            self.queue.addItem(q.get("name") or q["id"], q["id"])
+            self.queue.addItem(queue_label(q), q["id"])
         self.queue.setCurrentIndex(max(0, self.queue.findData(job.get("queue_id") or "main")))
         # file-exists check (conflict policy "ask")
         self.exists_lbl = QLabel()
@@ -155,13 +156,17 @@ class DownloadInfoDialog(QDialog):
         self.dir.textChanged.connect(self._check_exists)
         self.name.textChanged.connect(self._check_exists)
         size = job.get("total")
-        info = QLabel(f"大小：{human(size) if size else '未知'}    来源页：{job.get('page_url') or job.get('referrer') or '-'}")
+        info = QLabel(
+            tr("大小：{size}    来源页：{page}").format(
+                size=human(size) if size else tr("未知"), page=job.get("page_url") or job.get("referrer") or "-"
+            )
+        )
         info.setWordWrap(True)
         # the browser ranked this media as a suspected ad: say so, still downloadable
         self.ad_lbl = QLabel()
         reasons = job.get("ad_reasons") or []
         if reasons:
-            self.ad_lbl.setText("⚠ 疑似广告：" + describe_ad_reasons(reasons))
+            self.ad_lbl.setText(tr("⚠ 疑似广告：") + describe_ad_reasons(reasons))
             self.ad_lbl.setStyleSheet("color:#80868b")
             self.ad_lbl.setWordWrap(True)
         self.ad_lbl.setVisible(bool(reasons))
@@ -201,7 +206,9 @@ class DownloadInfoDialog(QDialog):
         exists = bool(self.name.text().strip()) and os.path.exists(self._target())
         policy = (self.cfg.get("engine") or {}).get("conflict_policy", "rename_numbered")
         if exists:
-            self.exists_lbl.setText("同名文件已存在，" + ("将被覆盖" if policy == "overwrite" else "下载时会自动编号；也可现在改名"))
+            self.exists_lbl.setText(
+                tr("同名文件已存在，") + (tr("将被覆盖") if policy == "overwrite" else tr("下载时会自动编号；也可现在改名"))
+            )
         self.exists_lbl.setVisible(exists)
         self.btn_rename.setVisible(exists)
 
@@ -251,7 +258,10 @@ class CompletionDialog(QDialog):
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         path = job.get("final_path") or ""
         lab = QLabel(
-            f"<b>{job_name(job)}</b><br>大小：{human(job.get('total') or job.get('got'))}<br>保存到：{path}<br>地址：{job.get('url', '')}"
+            f"<b>{job_name(job)}</b><br>"
+            + tr("大小：{size}<br>保存到：{path}<br>地址：{url}").format(
+                size=human(job.get("total") or job.get("got")), path=path, url=job.get("url", "")
+            )
         )
         lab.setWordWrap(True)
         lab.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -287,7 +297,7 @@ class PropertiesDialog(QDialog):
     def __init__(self, job: dict, parent=None):
         super().__init__(parent)
         self.job = job
-        self.setWindowTitle(f"属性 - {job_name(job)}")
+        self.setWindowTitle(tr("属性 - {name}").format(name=job_name(job)))
         self.resize(600, 340)
         idle = job.get("state") not in ("Probing", "Running", "Recording", "Assembling")
         self.url = QLineEdit(job.get("url", ""))
@@ -309,7 +319,12 @@ class PropertiesDialog(QDialog):
         form.addRow("Referer", self.ref)
         form.addRow("连接数", self.conns)
         form.addRow("镜像", self.mirrors)
-        info = QLabel(f"状态：{job.get('state')}    大小：{human(job.get('total'))}    路径：{job.get('final_path') or '-'}")
+        st = job.get("state") or ""
+        info = QLabel(
+            tr("状态：{st}    大小：{size}    路径：{path}").format(
+                st=tr(STATE_ZH.get(st, st)), size=human(job.get("total")), path=job.get("final_path") or "-"
+            )
+        )
         info.setWordWrap(True)
         bb = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         bb.accepted.connect(self.accept)

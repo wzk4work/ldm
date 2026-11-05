@@ -29,6 +29,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ldm_gui.i18n import queue_label, tr
+
 URL_RE = re.compile(r"https?://[^\s\"'<>]+", re.I)
 
 
@@ -67,7 +69,7 @@ class AddDialog(QDialog):
         self.name.setPlaceholderText("自动")
         self.queue = QComboBox()
         for q in queues or [{"id": "main", "name": "主队列"}]:
-            self.queue.addItem(f"{q.get('name')} ({q['id']})", q["id"])
+            self.queue.addItem(f"{queue_label(q)} ({q['id']})", q["id"])
         self.conns = QSpinBox()
         self.conns.setRange(0, 32)
         self.conns.setSpecialValueText("默认")
@@ -259,7 +261,7 @@ class SettingsDialog(QDialog):
         self.cat_table.verticalHeader().hide()
         cats = p.get("categories") or {}
         for r, (cid, name) in enumerate(CATEGORY_NAMES):
-            it = QTableWidgetItem(name)
+            it = QTableWidgetItem(tr(name))
             it.setData(Qt.ItemDataRole.UserRole, cid)
             it.setFlags(it.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.cat_table.setItem(r, 0, it)
@@ -523,7 +525,7 @@ class SettingsDialog(QDialog):
         text, ok = st.text(self.yt_enabled.isChecked())
         self.yt_status.setText(text)
         self.yt_status.setStyleSheet("" if ok else "color: #c5221f;")
-        self.yt_update.setText("更新 yt-dlp" if st.path else "安装 yt-dlp")
+        self.yt_update.setText(tr("更新 yt-dlp") if st.path else tr("安装 yt-dlp"))
         self.yt_state = st
         self.refresh_tools()
 
@@ -533,17 +535,21 @@ class SettingsDialog(QDialog):
         for t, lbl in self.tl_labels.items():
             i = ytdlp.tools_info(t, self.yt_path.text() if t == "yt-dlp" else self.deno_path.text(), self.tools_dir)
             if i.path:
-                line = f"{i.path}（{ytdlp.SOURCE_LABELS.get(i.source or '', '?')}）"
+                line = f"{i.path}{tr('（')}{tr(ytdlp.SOURCE_LABELS.get(i.source or '', '?'))}{tr('）')}"
             else:
-                line = "未找到" + ("（YouTube 需要）" if t == "yt-dlp" else "（YouTube 的 JS 验证需要，可选）")
+                line = tr("未找到") + (tr("（YouTube 需要）") if t == "yt-dlp" else tr("（YouTube 的 JS 验证需要，可选）"))
             if i.versions:
-                line += f"\n托管版本：{', '.join(i.versions)}；当前 {i.current or '-'}，可回滚到 {i.previous or '-'}"
+                line += "\n" + tr("托管版本：{vs}；当前 {cur}，可回滚到 {prev}").format(
+                    vs=", ".join(i.versions), cur=i.current or "-", prev=i.previous or "-"
+                )
             if i.meta:
-                line += f"\n校验：SHA-256（{i.meta.get('checksum_source', '?')}）；GPG：{i.meta.get('gpg', '-')}"
+                line += "\n" + tr("校验：SHA-256（{src}）；GPG：{gpg}").format(
+                    src=i.meta.get("checksum_source", "?"), gpg=i.meta.get("gpg", "-")
+                )
             if i.latest:
-                line += f"\n最新发布：{i.latest}" + ("  ⬆ 可更新" if ytdlp.update_available(i) else "")
+                line += "\n" + tr("最新发布：{v}").format(v=i.latest) + (tr("  ⬆ 可更新") if ytdlp.update_available(i) else "")
             if i.last_error:
-                line += f"\n上次检查失败：{i.last_error}"
+                line += "\n" + tr("上次检查失败：{e}").format(e=i.last_error)
             lbl.setText(line)
             if t == "yt-dlp":
                 self.tl_rollback.setEnabled(bool(i.previous))

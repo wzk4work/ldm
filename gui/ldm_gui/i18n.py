@@ -15,6 +15,7 @@ import re
 from PySide6.QtCore import QEvent, QLocale, QObject, QSettings
 from PySide6.QtWidgets import (
     QAbstractButton,
+    QAbstractSpinBox,
     QComboBox,
     QGroupBox,
     QLabel,
@@ -354,6 +355,148 @@ EN: dict[str, str] = {
         "Retry once with yt-dlp when LDM fails (403/410, not media, manifest errors)"
     ),
     "播放列表链接：把每个视频加入队列（默认只下载当前视频）": "Playlist links: enqueue every video (default: only the current one)",
+    # punctuation joined into dynamic texts
+    "：": ": ",
+    "；": "; ",
+    "（": " (",
+    "）": ")",
+    # time left / sizes
+    "{s} 秒": "{s} s",
+    "{m} 分 {s:02d} 秒": "{m} min {s:02d} s",
+    "{h} 小时 {m:02d} 分": "{h} h {m:02d} min",
+    "{d} 天 {h} 小时": "{d} d {h} h",
+    "via yt-dlp（原因：{r}）": "via yt-dlp (reason: {r})",
+    "{got}（已录制 {t}）": "{got} (recorded {t})",
+    "（{p:.2f}%）": " ({p:.2f}%)",
+    # main window
+    "{t}: 失败（{e}）": "{t}: failed ({e})",
+    (
+        "此下载需要 yt-dlp（LDM 不内置）。\n\n是否从 GitHub 官方发布页下载 yt-dlp 与 deno 到\n"
+        "{dir}\n并校验 SHA-256？完成后等待中的任务会自动重新开始。"
+    ): (
+        "This download needs yt-dlp (LDM does not bundle it).\n\nDownload yt-dlp and deno from the official GitHub releases to\n"
+        "{dir}\nand verify their SHA-256? Waiting downloads restart automatically afterwards."
+    ),
+    "正在下载 yt-dlp / deno…": "Downloading yt-dlp / deno…",
+    "删除 {n} 个任务？": "Delete {n} task(s)?",
+    "从列表中删除 {n} 个已完成的任务（文件保留）？": "Remove {n} completed task(s) from the list (files are kept)?",
+    "文件: {v}": "File: {v}",
+    "状态: {st}   进度: {p}   {got} / {total}": "Status: {st}   Progress: {p}   {got} / {total}",
+    "保存到: {v}": "Save to: {v}",
+    "(默认目录)": "(default folder)",
+    "类型: {kind}   连接数: {conns}   队列: {queue}   来源: {source}": (
+        "Type: {kind}   Connections: {conns}   Queue: {queue}   Source: {source}"
+    ),
+    "用户指定": "user-specified",
+    "LDM 托管": "managed by LDM",
+    "系统 PATH": "system PATH",
+    "  已自动更新并重试": "  updated automatically and retried",
+    "描述: {v}": "Description: {v}",
+    "错误: {code}: {msg}": "Error: {code}: {msg}",
+    "列表 (*.txt *.json *.csv);;所有文件 (*)": "Lists (*.txt *.json *.csv);;All files (*)",
+    "JSON (*.json);;纯文本 URL (*.txt)": "JSON (*.json);;Plain-text URLs (*.txt)",
+    "无法运行 ldm：{e}": "Cannot run ldm: {e}",
+    "Linux 下载管理器（多连接分段下载、浏览器接管、媒体嗅探）。": (
+        "Linux download manager (multi-connection segmented downloads, browser integration, media detection)."
+    ),
+    "启动后运行 N 秒并输出自检 JSON（用于无头测试）": "run for N seconds, then print a self-test JSON (headless tests)",
+    "自检结束时保存窗口截图": "save a window screenshot when the self-test ends",
+    "不自动启动 ldmd": "do not start ldmd automatically",
+    # notifications sent by ldmd
+    "磁盘已满，任务已暂停": "Disk full, download paused",
+    "下载失败": "Download failed",
+    "队列已完成": "Queue finished",
+    "需要安装 yt-dlp": "yt-dlp needs to be installed",
+    "改用 yt-dlp 重试": "Retrying with yt-dlp",
+    (
+        "需要 yt-dlp：LDM 可从 GitHub 官方发布页下载并校验（SHA-256）到数据目录。"
+        "请在弹出的对话框中确认，或运行 `ldm tools install`；安装后任务会自动重新排队"
+    ): (
+        "yt-dlp is needed: LDM can download it from the official GitHub releases into its data folder and verify it (SHA-256). "
+        "Confirm in the dialog or run `ldm tools install`; the download is queued again afterwards"
+    ),
+    # browser hand-over / properties / completion
+    "广告域名": "ad domain",
+    "内容是 VAST/VMAP 广告描述，不是视频列表": "content is a VAST/VMAP ad description, not a playlist",
+    "内容不是播放列表": "content is not a playlist",
+    "自定义广告域名": "custom ad domain",
+    "广告子域名": "ad subdomain",
+    "URL 含广告词": "ad keyword in URL",
+    "页面另有 HLS/DASH 流": "page also has an HLS/DASH stream",
+    "与主视频流不同主机": "different host than the main stream",
+    "时长很短": "very short",
+    "时长与页面不符": "duration does not match the page",
+    "时长与页面一致": "duration matches the page",
+    "先于正片出现且很快结束": "appeared before the main video and ended quickly",
+    "主播放器长时间播放": "played long in the main player",
+    "播放时有“跳过广告”按钮": "a “Skip ad” button was shown",
+    "出现在“跳过广告”期间": "appeared while “Skip ad” was shown",
+    "紧随 VAST/IMA 广告请求": "right after a VAST/IMA ad request",
+    "流媒体清单": "streaming manifest",
+    "正在播放的 MSE 播放器使用此流": "used by the playing MSE player",
+    "同一视频的其他码率": "another bitrate of the same video",
+    "⚠ 疑似广告：": "⚠ Possibly an ad: ",
+    "大小：{size}    来源页：{page}": "Size: {size}    Page: {page}",
+    "同名文件已存在，": "A file with this name exists and ",
+    "将被覆盖": "will be overwritten",
+    "下载时会自动编号；也可现在改名": "will get a number when downloading; you can also rename it now",
+    "大小：{size}<br>保存到：{path}<br>地址：{url}": "Size: {size}<br>Saved to: {path}<br>URL: {url}",
+    "属性 - {name}": "Properties - {name}",
+    "状态：{st}    大小：{size}    路径：{path}": "Status: {st}    Size: {size}    Path: {path}",
+    # add dialog / options
+    "a=1; b=2（登录站点可填）": "a=1; b=2 (for sites that need a login)",
+    "HTTP 基本认证 用户:密码（可选）": "HTTP basic auth user:password (optional)",
+    "登录": "Login",
+    "每个任务完成后运行（可用 {path}）": "Run after each download ({path} available)",
+    "分片并发": "Parallel segments",
+    "留空 = 自动查找（LDM 托管版本 → PATH → ~/.local/bin/yt-dlp）": "Empty = find automatically (LDM-managed → PATH → ~/.local/bin/yt-dlp)",
+    "留空 = 自动查找（LDM 托管版本 → PATH → ~/.deno/bin/deno）": "Empty = find automatically (LDM-managed → PATH → ~/.deno/bin/deno)",
+    "不使用（默认）": "None (default)",
+    "每行：域名 on|off|always\n例如：vimeo.com always\nexample.org off": (
+        "One per line: domain on|off|always\ne.g. vimeo.com always\nexample.org off"
+    ),
+    "附加参数，例如 --embed-metadata": "Extra arguments, e.g. --embed-metadata",
+    (
+        "LDM 不内置 yt-dlp / deno：需要时从 GitHub 官方发布页下载到上面的目录，"
+        "yt-dlp 用 SHA2-256SUMS 校验（装有 gpg 时再验证发布签名），deno 用发布页的 .sha256sum 校验；"
+        "旧版本保留一份以便回滚，正在下载中的任务不会被替换。查找顺序：自己填写的路径 → LDM 托管 → 系统 PATH。"
+    ): (
+        "LDM does not bundle yt-dlp / deno: when needed they are downloaded from the official GitHub releases into the folder above. "
+        "yt-dlp is verified with SHA2-256SUMS (plus the release signature when gpg is installed), deno with the release's .sha256sum. "
+        "The previous version is kept for rollback, and running downloads are never switched. "
+        "Lookup order: your own path → LDM-managed → system PATH."
+    ),
+    "未找到": "Not found",
+    "（YouTube 需要）": " (needed for YouTube)",
+    "（YouTube 的 JS 验证需要，可选）": " (for YouTube's JS challenge, optional)",
+    "托管版本：{vs}；当前 {cur}，可回滚到 {prev}": "Managed versions: {vs}; current {cur}, rollback to {prev}",
+    "校验：SHA-256（{src}）；GPG：{gpg}": "Verified: SHA-256 ({src}); GPG: {gpg}",
+    "最新发布：{v}": "Latest release: {v}",
+    "  ⬆ 可更新": "  ⬆ update available",
+    "上次检查失败：{e}": "Last check failed: {e}",
+    "yt-dlp 已关闭（YouTube 将由 LDM 自己尝试，通常无法下载）": "yt-dlp is off (LDM tries YouTube itself, which usually fails)",
+    "未找到 yt-dlp：YouTube 下载与回退不可用。点击“安装 yt-dlp”从 GitHub 官方发布页下载（校验 SHA-256），或在下方填写路径。": (
+        "yt-dlp not found: YouTube downloads and the fallback are unavailable. "
+        "Click “Install yt-dlp” to download it from the official GitHub releases (SHA-256 verified), or enter a path below."
+    ),
+    "{path}：无法运行 --version": "{path}: --version failed",
+    "{path}  版本 {ver}（来源：{src}；{kind}）": "{path}  version {ver} (source: {src}; {kind})",
+    "  ⚠ 已 {n} 天未更新，站点变化后可能失效，建议更新": "  ⚠ not updated for {n} days, may break when sites change; update recommended",
+    "失败（退出码 {code}）": "Failed (exit code {code})",
+    # queues / scheduler / tools
+    "周一": "Mon",
+    "周二": "Tue",
+    "周三": "Wed",
+    "周四": "Thu",
+    "周五": "Fri",
+    "周六": "Sat",
+    "周日": "Sun",
+    "删除队列“{name}”？其中的任务会移到主队列。": "Delete queue “{name}”? Its downloads move to the main queue.",
+    "http://example.com/pic*.jpg   或   http://example.com/file[001-100].zip": (
+        "http://example.com/pic*.jpg   or   http://example.com/file[001-100].zip"
+    ),
+    "共 {n} 个地址": "{n} URL(s)",
+    "找到 {n} 个文件": "Found {n} file(s)",
 }
 
 _lang: str | None = None
@@ -389,6 +532,13 @@ def tr(s: str) -> str:
     return s
 
 
+def queue_label(q: dict) -> str:
+    """Display name of a queue. The daemon creates the default queue as id "main" with the stored
+    name "主队列"; only that untouched default is shown translated (stored data is never renamed)."""
+    name = q.get("name") or q.get("id", "")
+    return tr(name) if q.get("id") == "main" and name == "主队列" else name
+
+
 def translate_widget(root: QWidget) -> None:
     if language() != "en":
         return
@@ -397,24 +547,28 @@ def translate_widget(root: QWidget) -> None:
         if w.isWindow() and w.windowTitle():
             w.setWindowTitle(tr(w.windowTitle()))
         for a in w.actions():
-            a.setText(tr(a.text()))
+            a.setText(_mn(a.text()))
             if a.toolTip():
                 a.setToolTip(tr(a.toolTip()))
-        if isinstance(w, (QAbstractButton, QLabel)):
+        if isinstance(w, QAbstractButton) or (isinstance(w, QLabel) and w.buddy() is not None):
+            w.setText(_mn(w.text()))
+        elif isinstance(w, QLabel):
             w.setText(tr(w.text()))
         if isinstance(w, QMenu):
-            w.setTitle(tr(w.title()))
+            w.setTitle(_mn(w.title()))
         if isinstance(w, QGroupBox):
-            w.setTitle(tr(w.title()))
+            w.setTitle(_mn(w.title()))
         if isinstance(w, QSpinBox) and w.suffix():
             w.setSuffix(tr(w.suffix()))
+        if isinstance(w, QAbstractSpinBox) and w.specialValueText():
+            w.setSpecialValueText(tr(w.specialValueText()))
         if isinstance(w, (QLineEdit, QPlainTextEdit)) and w.placeholderText():
             w.setPlaceholderText(tr(w.placeholderText()))
         if w.toolTip():
             w.setToolTip(tr(w.toolTip()))
         if isinstance(w, QTabWidget):
             for i in range(w.count()):
-                w.setTabText(i, tr(w.tabText(i)))
+                w.setTabText(i, _mn(w.tabText(i)))
         if isinstance(w, QComboBox):
             for i in range(w.count()):
                 w.setItemText(i, tr(w.itemText(i)))
@@ -432,6 +586,13 @@ def translate_widget(root: QWidget) -> None:
                 it = itr.value()
                 it.setText(0, _tr_count(it.text(0)))
                 itr += 1
+
+
+def _mn(s: str) -> str:
+    """tr() for texts Qt parses for mnemonics: a literal "&" in the English text ("Speed & proxy")
+    must be doubled or Qt turns the next letter into a shortcut and drops the "&"."""
+    t = tr(s)
+    return t.replace("&", "&&") if t != s and "&" in t and "&" not in s else t
 
 
 def _tr_count(s: str) -> str:

@@ -22,6 +22,8 @@ from dataclasses import dataclass, field
 from PySide6.QtCore import QProcess
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QPlainTextEdit, QVBoxLayout
 
+from ldm_gui.i18n import tr
+
 OUTDATED_DAYS = 90
 
 
@@ -143,18 +145,20 @@ class Status:
     def text(self, enabled: bool = True) -> tuple[str, bool]:
         """(message, ok) for the status label."""
         if not enabled:
-            return "yt-dlp 已关闭（YouTube 将由 LDM 自己尝试，通常无法下载）", False
+            return tr("yt-dlp 已关闭（YouTube 将由 LDM 自己尝试，通常无法下载）"), False
         if not self.path:
             return (
-                "未找到 yt-dlp：YouTube 下载与回退不可用。点击“安装 yt-dlp”从 GitHub 官方发布页下载（校验 SHA-256），或在下方填写路径。",
+                tr(
+                    "未找到 yt-dlp：YouTube 下载与回退不可用。点击“安装 yt-dlp”从 GitHub 官方发布页下载（校验 SHA-256），或在下方填写路径。"
+                ),
                 False,
             )
         if not self.version:
-            return f"{self.path}：无法运行 --version", False
-        src = SOURCE_LABELS.get(self.source or "", "?")
-        msg = f"{self.path}  版本 {self.version}（来源：{src}；{self.install}）"
+            return tr("{path}：无法运行 --version").format(path=self.path), False
+        src = tr(SOURCE_LABELS.get(self.source or "", "?"))
+        msg = tr("{path}  版本 {ver}（来源：{src}；{kind}）").format(path=self.path, ver=self.version, src=src, kind=self.install)
         if self.outdated:
-            return f"{msg}  ⚠ 已 {self.age_days} 天未更新，站点变化后可能失效，建议更新", False
+            return msg + tr("  ⚠ 已 {n} 天未更新，站点变化后可能失效，建议更新").format(n=self.age_days), False
         return msg, True
 
 
@@ -227,7 +231,7 @@ class UpdateDialog(QDialog):
 
     def __init__(self, cmd: list[str], parent=None, title: str = "更新 yt-dlp"):
         super().__init__(parent)
-        self.setWindowTitle(title)
+        self.setWindowTitle(tr(title))
         self.resize(640, 360)
         self.cmd = cmd
         self.out = QPlainTextEdit()
@@ -256,4 +260,4 @@ class UpdateDialog(QDialog):
         if self.exit_code is not None:
             return
         self.exit_code = int(code)
-        self.state.setText(("完成" if code == 0 else f"失败（退出码 {code}）") + "：" + " ".join(self.cmd))
+        self.state.setText((tr("完成") if code == 0 else tr("失败（退出码 {code}）").format(code=code)) + tr("：") + " ".join(self.cmd))

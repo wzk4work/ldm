@@ -26,9 +26,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ldm_gui.model import job_name
+from ldm_gui.i18n import queue_label, tr
+from ldm_gui.model import STATE_ZH, job_name
 
-WEEKDAYS = ["一", "二", "三", "四", "五", "六", "日"]
+WEEKDAYS = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
 ON_DONE = [("", "无操作"), ("shutdown", "关机"), ("command", "运行命令")]
 
 
@@ -72,7 +73,7 @@ class QueueDialog(QDialog):
         self.end = QTimeEdit(QTime(7, 0))
         for t in (self.start, self.end):
             t.setDisplayFormat("HH:mm")
-        self.days = [QCheckBox(f"周{d}") for d in WEEKDAYS]
+        self.days = [QCheckBox(tr(d)) for d in WEEKDAYS]
         drow = QHBoxLayout()
         for c in self.days:
             drow.addWidget(c)
@@ -148,7 +149,7 @@ class QueueDialog(QDialog):
         self.list.blockSignals(True)
         self.list.clear()
         for q in self.queues:
-            self.list.addItem(f"{q.get('name') or q['id']} ({q['id']})")
+            self.list.addItem(f"{queue_label(q)} ({q['id']})")
         self.list.blockSignals(False)
         self.list.setCurrentRow(min(select, len(self.queues) - 1))
         self._load(self.list.currentRow())
@@ -162,7 +163,7 @@ class QueueDialog(QDialog):
             return
         q = self.queues[row]
         sch = q.get("schedule") or {}
-        self.name.setText(q.get("name") or "")
+        self.name.setText(queue_label(q) if q.get("name") else "")
         self.conc.setValue(int(q.get("concurrent") or 1))
         self.enabled.setChecked(bool(q.get("enabled", True)))
         for flag, edit, key in ((self.use_start, self.start, "start"), (self.use_end, self.end, "end")):
@@ -179,7 +180,8 @@ class QueueDialog(QDialog):
         qjobs = [j for j in self.jobs if j.get("queue_id") == q["id"] and j.get("state") not in ("Completed", "Canceled")]
         qjobs.sort(key=lambda j: (-(j.get("priority") or 0), j.get("created_at") or 0))
         for j in qjobs:
-            it = QListWidgetItem(f"{job_name(j)}   [{j.get('state')}]")
+            st = j.get("state") or ""
+            it = QListWidgetItem(f"{job_name(j)}   [{tr(STATE_ZH.get(st, st))}]")
             it.setData(Qt.ItemDataRole.UserRole, j)
             self.files.addItem(it)
 
@@ -203,8 +205,11 @@ class QueueDialog(QDialog):
         days = [i + 1 for i, c in enumerate(self.days) if c.isChecked()]
         if len(days) < 7:
             sch["days"] = days
+        name = self.name.text().strip() or q.get("id")
+        if q.get("name") and name == queue_label(q):
+            name = q["name"]  # the default queue's translated label is not stored as its name
         q.update(
-            name=self.name.text().strip() or q.get("id"),
+            name=name,
             concurrent=self.conc.value(),
             enabled=self.enabled.isChecked(),
             schedule=sch or None,
@@ -257,11 +262,11 @@ class QueueDialog(QDialog):
         if not q:
             return
         if q["id"] == "main":
-            QMessageBox.information(self, "删除队列", "主队列不能删除。")
+            QMessageBox.information(self, tr("删除队列"), tr("主队列不能删除。"))
             return
         if (
             confirm
-            and QMessageBox.question(self, "删除队列", f"删除队列“{q.get('name')}”？其中的任务会移到主队列。")
+            and QMessageBox.question(self, tr("删除队列"), tr("删除队列“{name}”？其中的任务会移到主队列。").format(name=queue_label(q)))
             != QMessageBox.StandardButton.Yes
         ):
             return

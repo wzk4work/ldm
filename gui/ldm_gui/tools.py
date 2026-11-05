@@ -32,6 +32,7 @@ from PySide6.QtWidgets import (
 )
 
 from ldm_gui.dialogs import urls_in_text
+from ldm_gui.i18n import queue_label, tr
 
 BRACKET = re.compile(r"\[(\d+)-(\d+)(?::(\d+))?\]|\[([a-zA-Z])-([a-zA-Z])\]")
 MAX_BATCH = 10000
@@ -100,7 +101,7 @@ class BatchDialog(QDialog):
         self.count = QLabel()
         self.queue = QComboBox()
         for q in queues or [{"id": "main", "name": "主队列"}]:
-            self.queue.addItem(q.get("name") or q["id"], q["id"])
+            self.queue.addItem(queue_label(q), q["id"])
         self.paused = QCheckBox("加入后暂停（稍后由队列启动）")
         for w in (self.template, self.start, self.end):
             w.textChanged.connect(self.refresh)
@@ -140,7 +141,7 @@ class BatchDialog(QDialog):
     def refresh(self):
         u = self.urls()
         self.preview.setPlainText("\n".join(u[:200]) + ("\n…" if len(u) > 200 else ""))
-        self.count.setText(f"共 {len(u)} 个地址")
+        self.count.setText(tr("共 {n} 个地址").format(n=len(u)))
 
     def requests(self) -> list[dict]:
         return [{"url": u, "queue": self.queue.currentData(), "paused": self.paused.isChecked(), "source": "batch"} for u in self.urls()]
@@ -281,11 +282,11 @@ class GrabberDialog(QDialog):
     def start(self):
         url = self.url.text().strip()
         if not url.startswith(("http://", "https://")):
-            self.status.setText("请输入 http(s) 地址")
+            self.status.setText(tr("请输入 http(s) 地址"))
             return
         exts = {e.strip(".").lower() for e in self.exts.text().split() if e.strip(".")}
         self.go.setEnabled(False)
-        self.status.setText("抓取中…")
+        self.status.setText(tr("抓取中…"))
         args = (url, exts, self.depth.value(), self.same.isChecked(), self.max_pages.value())
         threading.Thread(target=lambda: self.sig.done.emit(grab(*args, stop=lambda: self._stop)), daemon=True).start()
 
@@ -299,7 +300,7 @@ class GrabberDialog(QDialog):
             self.table.setItem(r, 0, c0)
             self.table.setItem(r, 1, QTableWidgetItem(it["ext"]))
             self.table.setItem(r, 2, QTableWidgetItem(it["page"]))
-        self.status.setText(f"找到 {len(items)} 个文件")
+        self.status.setText(tr("找到 {n} 个文件").format(n=len(items)))
 
     def _check_all(self, on: bool):
         for r in range(self.table.rowCount()):

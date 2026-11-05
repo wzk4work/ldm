@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from ldm_gui.i18n import tr
 from ldm_gui.model import ACTIVE_STATES, STATE_ZH, eta_seconds, hms, human, human_time, is_recording, job_name, progress
 
 AFTER_CHOICES = [("", "无操作"), ("open", "打开文件"), ("folder", "打开所在文件夹"), ("shutdown", "关机")]
@@ -250,14 +251,15 @@ class ProgressDialog(QDialog):
             st = "直播录制中"
             if j.get("stopRequested"):
                 st = "正在停止录制…"
+        st = tr(st)
         if j.get("error"):
-            st += f"：{j.get('error_code')} {j.get('error')}"
+            st += tr("：") + f"{j.get('error_code')} {j.get('error')}"
         self.lbl["state"].setText(st)
-        self.lbl["size"].setText(human(total) if total and not recording else "未知")
+        self.lbl["size"].setText(human(total) if total and not recording else tr("未知"))
         if recording:
-            self.lbl["got"].setText(f"{human(got)}（已录制 {hms(j.get('recordedSecs'))}）")
+            self.lbl["got"].setText(tr("{got}（已录制 {t}）").format(got=human(got), t=hms(j.get("recordedSecs"))))
         else:
-            self.lbl["got"].setText(f"{human(got)}" + ("" if p is None else f"（{p:.2f}%）"))
+            self.lbl["got"].setText(f"{human(got)}" + ("" if p is None else tr("（{p:.2f}%）").format(p=p)))
         spd = j.get("speedBps") or 0
         self.lbl["speed"].setText(f"{human(spd)}/s" if state in ACTIVE_STATES else "-")
         self.lbl["eta"].setText(human_time(eta_seconds(j)) or "-")
@@ -270,7 +272,7 @@ class ProgressDialog(QDialog):
             resumable = "未知"
         else:
             resumable = "否"
-        self.lbl["resume"].setText(resumable)
+        self.lbl["resume"].setText(tr(resumable))
         self.lbl["conns"].setText(
             str(j.get("connections") if j.get("connections") is not None else len([x for x in parts if x.get("state") == "Active"]))
         )
@@ -289,22 +291,23 @@ class ProgressDialog(QDialog):
                 str(part.get("idx", r) + 1),
                 f"{human(part.get('start', 0))} – {human(end)}",
                 f"{human(part.get('got', 0))} {pct}",
-                {"Active": "接收数据", "Done": "完成", "Pending": "等待"}.get(part.get("state", ""), part.get("state", "")),
+                tr({"Active": "接收数据", "Done": "完成", "Pending": "等待"}.get(part.get("state", ""), part.get("state", ""))),
             ]
             for c, v in enumerate(vals):
                 self.conn_table.setItem(r, c, QTableWidgetItem(v))
         paused = state in ("Paused", "Failed", "Queued")
-        self.btn_pause.setText("继续" if paused else "暂停")
+        self.btn_pause.setText(tr("继续") if paused else tr("暂停"))
+        self.btn_pause.setProperty("resume", paused)
         self.btn_pause.setEnabled(state not in ("Completed", "Canceled"))
         self.btn_stop_rec.setVisible(recording)
 
     # ---------------------------------------------------------------- actions
     def toggle_pause(self):
-        typ = "JobResume" if self.btn_pause.text() == "继续" else "JobPause"
+        typ = "JobResume" if self.btn_pause.property("resume") else "JobPause"
         self.client.request(typ, {"id": self.job["id"]})
 
     def stop_recording(self):
-        """Graceful: the recording is finalised into a playable file (unlike 取消 / 删除)."""
+        """Graceful: the recording is finalised into a playable file (unlike Cancel / Delete)."""
         self.client.request("JobStopRecording", {"id": self.job["id"]})
         self.job["stopRequested"] = True
         self.btn_stop_rec.setEnabled(False)
@@ -318,7 +321,7 @@ class ProgressDialog(QDialog):
     def toggle_details(self):
         vis = not self.tabs.isVisible()
         self.tabs.setVisible(vis)
-        self.btn_hide.setText("隐藏详情" if vis else "显示详情")
+        self.btn_hide.setText(tr("隐藏详情") if vis else tr("显示详情"))
         self.adjustSize()
 
     def apply_limit(self):
@@ -328,7 +331,7 @@ class ProgressDialog(QDialog):
 
     def set_after(self, val: str):
         if val == "shutdown":
-            ok = QMessageBox.question(self, "完成后关机", "此任务完成后将执行关机命令，确定？") == QMessageBox.StandardButton.Yes
+            ok = QMessageBox.question(self, tr("完成后关机"), tr("此任务完成后将执行关机命令，确定？")) == QMessageBox.StandardButton.Yes
             if not ok:
                 self.after_group.button(0).setChecked(True)
                 val = ""

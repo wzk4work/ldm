@@ -35,9 +35,9 @@ from PySide6.QtWidgets import (
 from ldm_gui import __version__, i18n
 from ldm_gui.capture import CompletionDialog, DownloadInfoDialog, PropertiesDialog
 from ldm_gui.dialogs import AddDialog, SettingsDialog, urls_in_text
-from ldm_gui.i18n import _tr_count, tr
+from ldm_gui.i18n import _tr_count, queue_label, tr
 from ldm_gui.ipc import DaemonClient
-from ldm_gui.model import ACTIVE_STATES, CATEGORIES, COL, JobFilter, JobModel, human, is_recording, job_name, progress
+from ldm_gui.model import ACTIVE_STATES, CATEGORIES, COL, STATE_ZH, JobFilter, JobModel, human, is_recording, job_name, progress
 from ldm_gui.progress import ProgressDialog
 from ldm_gui.scheduler import QueueDialog
 from ldm_gui.tools import BatchDialog, DropTarget, GrabberDialog
@@ -299,7 +299,7 @@ class MainWindow(QMainWindow):
 
     def tray_menu(self) -> QMenu:
         m = QMenu(self)
-        m.addAction("显示主窗口", self.showNormal)
+        m.addAction(tr("显示主窗口"), self.showNormal)
         m.addAction(self.act_add)
         m.addSeparator()
         m.addAction(self.act_limiter)
@@ -334,7 +334,8 @@ class MainWindow(QMainWindow):
         node("失败", ("all", "Failed", None))
         qroot = node("队列", ("all", None, "*"))
         for q in self.queues or [{"id": "main", "name": "主队列"}]:
-            node(q.get("name") or q["id"], ("all", None, q["id"]), qroot)
+            it = node(queue_label(q), ("all", None, q["id"]), qroot)
+            it.setText(0, queue_label(q))  # a user's queue name is shown as typed
         self.tree.expandToDepth(0)
         self.tree.blockSignals(False)
         target = None
@@ -421,13 +422,15 @@ class MainWindow(QMainWindow):
                 if not isinstance(r, dict):
                     continue
                 if r.get("error"):
-                    parts.append(f"{t}: 失败（{r['error']}）")
+                    parts.append(tr("{t}: 失败（{e}）").format(t=t, e=r["error"]))
                 elif r.get("version") or (r.get("install") or {}).get("version"):
                     parts.append(f"{t} {r.get('version') or r['install']['version']}")
             if parts:
-                self.statusBar().showMessage("工具：" + "；".join(parts), 10000)
+                self.statusBar().showMessage(tr("工具：") + tr("；").join(parts), 10000)
         elif typ == "Notify" and self.tray and gen.get("notify_on_complete", True):
-            self.tray.showMessage(payload.get("title", "LDM"), str(payload.get("body") or ""), app_icon(), 4000)
+            # titles (and the fixed yt-dlp hint) come from ldmd in Chinese; file names / URLs are left alone
+            body = str(payload.get("body") or "")
+            self.tray.showMessage(tr(payload.get("title", "LDM")), tr(body) if body in i18n.EN else body, app_icon(), 4000)
 
     def ask_tools_install(self, payload: dict):
         """First-use consent (ytdlp.auto_install = ask): download yt-dlp + deno from GitHub?"""
@@ -437,20 +440,22 @@ class MainWindow(QMainWindow):
 
         box = QMessageBox(
             QMessageBox.Icon.Question,
-            "需要 yt-dlp",
-            "此下载需要 yt-dlp（LDM 不内置）。\n\n是否从 GitHub 官方发布页下载 yt-dlp 与 deno 到\n"
-            f"{payload.get('toolsDir', '')}\n并校验 SHA-256？完成后等待中的任务会自动重新开始。",
+            tr("需要 yt-dlp"),
+            tr(
+                "此下载需要 yt-dlp（LDM 不内置）。\n\n是否从 GitHub 官方发布页下载 yt-dlp 与 deno 到\n"
+                "{dir}\n并校验 SHA-256？完成后等待中的任务会自动重新开始。"
+            ).format(dir=payload.get("toolsDir", "")),
             parent=self,
         )
-        yes = box.addButton("下载并安装", QMessageBox.ButtonRole.AcceptRole)
-        box.addButton("不用了", QMessageBox.ButtonRole.RejectRole)
-        always = QCheckBox("以后需要时自动安装，不再询问")
+        yes = box.addButton(tr("下载并安装"), QMessageBox.ButtonRole.AcceptRole)
+        box.addButton(tr("不用了"), QMessageBox.ButtonRole.RejectRole)
+        always = QCheckBox(tr("以后需要时自动安装，不再询问"))
         box.setCheckBox(always)
 
         def done(_r):
             if box.clickedButton() is yes:
                 self.client.request("ToolsAction", {"action": "install"})
-                self.statusBar().showMessage("正在下载 yt-dlp / deno…", 5000)
+                self.statusBar().showMessage(tr("正在下载 yt-dlp / deno…"), 5000)
                 if always.isChecked():
                     self.patch_config({"ytdlp": {"auto_install": "always"}})
 
@@ -539,7 +544,7 @@ class MainWindow(QMainWindow):
     def _header_menu(self, pos):
         m = QMenu(self)
         for name, c in COL.items():
-            a = m.addAction(name)
+            a = m.addAction(tr("队列（列）") if name == "队列" else tr(name))
             a.setCheckable(True)
             a.setChecked(not self.table.isColumnHidden(c))
             a.setEnabled(name != "文件名")
@@ -561,17 +566,15 @@ class MainWindow(QMainWindow):
     def _fill_queue_menu(self, menu: QMenu, typ: str):
         menu.clear()
         for q in self.queues or [{"id": "main", "name": "主队列"}]:
-            menu.addAction(
-                q.get("name") or q["id"], lambda qid=q["id"]: self.client.request(typ, {"id": qid}, lambda _e: self.reload_queues())
-            )
+            menu.addAction(queue_label(q), lambda qid=q["id"]: self.client.request(typ, {"id": qid}, lambda _e: self.reload_queues()))
 
     def remove_selected(self):
         jobs = self.selected()
         if not jobs:
             return
-        box = QMessageBox(QMessageBox.Icon.Question, "删除任务", f"删除 {len(jobs)} 个任务？", parent=self)
-        keep = box.addButton("仅删除任务", QMessageBox.ButtonRole.AcceptRole)
-        files = box.addButton("同时删除文件", QMessageBox.ButtonRole.DestructiveRole)
+        box = QMessageBox(QMessageBox.Icon.Question, tr("删除任务"), tr("删除 {n} 个任务？").format(n=len(jobs)), parent=self)
+        keep = box.addButton(tr("仅删除任务"), QMessageBox.ButtonRole.AcceptRole)
+        files = box.addButton(tr("同时删除文件"), QMessageBox.ButtonRole.DestructiveRole)
         box.addButton(QMessageBox.StandardButton.Cancel)
         box.exec()
         if box.clickedButton() not in (keep, files):
@@ -585,7 +588,8 @@ class MainWindow(QMainWindow):
             return
         if (
             confirm
-            and QMessageBox.question(self, "删除已完成", f"从列表中删除 {n} 个已完成的任务（文件保留）？") != QMessageBox.StandardButton.Yes
+            and QMessageBox.question(self, tr("删除已完成"), tr("从列表中删除 {n} 个已完成的任务（文件保留）？").format(n=n))
+            != QMessageBox.StandardButton.Yes
         ):
             return
         self.client.request("JobRemove", {"completed": True}, lambda _e: self.reload())
@@ -597,28 +601,34 @@ class MainWindow(QMainWindow):
             return
         j = jobs[0]
         p = progress(j)
+        st = j.get("state") or ""
         lines = [
-            f"文件: {job_name(j)}",
+            tr("文件: {v}").format(v=job_name(j)),
             f"URL: {j.get('url')}",
-            f"状态: {j.get('state')}   进度: {'-' if p is None else f'{p:.1f}%'}   {human(j.get('got'))} / {human(j.get('total'))}",
-            f"保存到: {j.get('final_path') or j.get('save_dir') or '(默认目录)'}",
-            f"类型: {j.get('kind')}   连接数: {j.get('max_connections')}   队列: {j.get('queue_id')}   来源: {j.get('source')}",
+            tr("状态: {st}   进度: {p}   {got} / {total}").format(
+                st=tr(STATE_ZH.get(st, st)), p="-" if p is None else f"{p:.1f}%", got=human(j.get("got")), total=human(j.get("total"))
+            ),
+            tr("保存到: {v}").format(v=j.get("final_path") or j.get("save_dir") or tr("(默认目录)")),
+            tr("类型: {kind}   连接数: {conns}   队列: {queue}   来源: {source}").format(
+                kind=j.get("kind"), conns=j.get("max_connections"), queue=j.get("queue_id"), source=j.get("source")
+            ),
             f"Referer: {j.get('referrer') or '-'}",
         ]
         y = j.get("ytdlp") or {}
         if y.get("bin_path"):
-            src = {"user": "用户指定", "managed": "LDM 托管", "system": "系统 PATH"}.get(y.get("bin_source") or "", "?")
+            src = tr({"user": "用户指定", "managed": "LDM 托管", "system": "系统 PATH"}.get(y.get("bin_source") or "", "?"))
             lines.append(
-                f"yt-dlp: {y.get('bin_version') or '?'}（{src}）{y['bin_path']}" + ("  已自动更新并重试" if y.get("update_retried") else "")
+                f"yt-dlp: {y.get('bin_version') or '?'}{tr('（')}{src}{tr('）')}{y['bin_path']}"
+                + (tr("  已自动更新并重试") if y.get("update_retried") else "")
             )
         if j.get("description"):
-            lines.append(f"描述: {j['description']}")
+            lines.append(tr("描述: {v}").format(v=j["description"]))
         if j.get("error"):
-            lines.append(f"错误: {j.get('error_code')}: {j.get('error')}")
+            lines.append(tr("错误: {code}: {msg}").format(code=j.get("error_code"), msg=j.get("error")))
         self.details.setPlainText("\n".join(lines))
 
     def stop_recording_selected(self):
-        """Live jobs: stop gracefully and keep what was recorded (删除 still kills everything)."""
+        """Live jobs: stop gracefully and keep what was recorded (Delete still kills everything)."""
         for j in self.selected():
             if is_recording(j):
                 self.client.request("JobStopRecording", {"id": j["id"]})
@@ -637,13 +647,13 @@ class MainWindow(QMainWindow):
             m.addAction(self.act_stop_rec)
         for a in (self.act_resume, self.act_pause, self.act_remove):
             m.addAction(a)
-        mq = m.addMenu("移动到队列")
+        mq = m.addMenu(tr("移动到队列"))
         for q in self.queues:
             mq.addAction(
-                q.get("name") or q["id"],
+                queue_label(q),
                 lambda qid=q["id"]: [self.client.request("JobSet", {"id": j["id"], "queue": qid}) for j in self.selected()],
             )
-        m.addAction("复制 URL", lambda: QGuiApplication.clipboard().setText("\n".join(j["url"] for j in self.selected())))
+        m.addAction(tr("复制 URL"), lambda: QGuiApplication.clipboard().setText("\n".join(j["url"] for j in self.selected())))
         m.addSeparator()
         m.addAction(self.act_props)
         m.exec(self.table.viewport().mapToGlobal(pos))
@@ -673,7 +683,7 @@ class MainWindow(QMainWindow):
     def _send_adds(self, reqs: list[dict], interactive: bool = True):
         def cb(env):
             if env.get("type") == "Error":
-                QMessageBox.warning(self, "添加失败", env["payload"].get("error", ""))
+                QMessageBox.warning(self, tr("添加失败"), env["payload"].get("error", ""))
                 return
             jid = env.get("payload", {}).get("jobId")
             if jid and interactive and not env["payload"].get("duplicate"):
@@ -747,7 +757,7 @@ class MainWindow(QMainWindow):
 
     def import_list(self, path: str | None = None):
         if path is None:
-            path, _ = QFileDialog.getOpenFileName(self, "导入下载列表", "", "列表 (*.txt *.json *.csv);;所有文件 (*)")
+            path, _ = QFileDialog.getOpenFileName(self, tr("导入下载列表"), "", tr("列表 (*.txt *.json *.csv);;所有文件 (*)"))
         if not path:
             return
         with open(path, encoding="utf-8", errors="replace") as f:
@@ -756,7 +766,7 @@ class MainWindow(QMainWindow):
 
     def export_list(self, path: str | None = None):
         if path is None:
-            path, _ = QFileDialog.getSaveFileName(self, "导出下载列表", "ldm-downloads.json", "JSON (*.json);;纯文本 URL (*.txt)")
+            path, _ = QFileDialog.getSaveFileName(self, tr("导出下载列表"), "ldm-downloads.json", tr("JSON (*.json);;纯文本 URL (*.txt)"))
         if not path:
             return
         fmt = "txt" if path.endswith(".txt") else "json"
@@ -768,7 +778,7 @@ class MainWindow(QMainWindow):
         self.client.request("Export", {"format": fmt}, save)
 
     def export_diag(self):
-        path, _ = QFileDialog.getSaveFileName(self, "导出诊断包（已脱敏）", "ldm-diag.json", "JSON (*.json)")
+        path, _ = QFileDialog.getSaveFileName(self, tr("导出诊断包（已脱敏）"), "ldm-diag.json", "JSON (*.json)")
         if not path:
             return
         exe = shutil.which("ldm") or "ldm"
@@ -776,11 +786,11 @@ class MainWindow(QMainWindow):
             r = subprocess.run([exe, "diag", "-o", path], capture_output=True, text=True, timeout=30)
             msg = r.stdout.strip() or r.stderr.strip()
         except OSError as e:
-            msg = f"无法运行 ldm：{e}"
+            msg = tr("无法运行 ldm：{e}").format(e=e)
         self.statusBar().showMessage(msg, 8000)
 
     def about(self):
-        QMessageBox.about(self, "关于 LDM", f"LDM {__version__}\nLinux 下载管理器（多连接分段下载、浏览器接管、媒体嗅探）。")
+        QMessageBox.about(self, tr("关于 LDM"), f"LDM {__version__}\n" + tr("Linux 下载管理器（多连接分段下载、浏览器接管、媒体嗅探）。"))
 
     def _clipboard_changed(self):
         if not self.config.get("general", {}).get("enable_clipboard"):
@@ -826,10 +836,10 @@ def ensure_daemon():
 
 
 def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(prog="ldm-gui", description="LDM 图形界面")
-    ap.add_argument("--smoke", type=float, metavar="SECONDS", help="启动后运行 N 秒并输出自检 JSON（用于无头测试）")
-    ap.add_argument("--screenshot", help="自检结束时保存窗口截图")
-    ap.add_argument("--no-autostart", action="store_true", help="不自动启动 ldmd")
+    ap = argparse.ArgumentParser(prog="ldm-gui", description=tr("LDM 图形界面"))
+    ap.add_argument("--smoke", type=float, metavar="SECONDS", help=tr("启动后运行 N 秒并输出自检 JSON（用于无头测试）"))
+    ap.add_argument("--screenshot", help=tr("自检结束时保存窗口截图"))
+    ap.add_argument("--no-autostart", action="store_true", help=tr("不自动启动 ldmd"))
     ap.add_argument("--version", action="version", version=__version__)
     args = ap.parse_args(argv)
     app = QApplication.instance() or QApplication(sys.argv[:1])

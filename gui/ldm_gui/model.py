@@ -69,12 +69,12 @@ def human_time(sec: float | None) -> str:
         return ""
     sec = int(sec + 0.5)
     if sec < 60:
-        return f"{sec} 秒"
+        return tr("{s} 秒").format(s=sec)
     if sec < 3600:
-        return f"{sec // 60} 分 {sec % 60:02d} 秒"
+        return tr("{m} 分 {s:02d} 秒").format(m=sec // 60, s=sec % 60)
     if sec < 86400:
-        return f"{sec // 3600} 小时 {sec % 3600 // 60:02d} 分"
-    return f"{sec // 86400} 天 {sec % 86400 // 3600} 小时"
+        return tr("{h} 小时 {m:02d} 分").format(h=sec // 3600, m=sec % 3600 // 60)
+    return tr("{d} 天 {h} 小时").format(d=sec // 86400, h=sec % 86400 // 3600)
 
 
 def fmt_ts(ts: int | None) -> str:
@@ -174,7 +174,7 @@ class JobModel(QAbstractTableModel):
             return fmt_ts(j.get("last_try_at"))
         if name == "描述":
             if not j.get("description") and j.get("fallbackReason"):
-                return f"via yt-dlp（{tr('原因')}：{j['fallbackReason']}）"
+                return tr("via yt-dlp（原因：{r}）").format(r=j["fallbackReason"])
             return j.get("description") or ""
         if name == "添加时间":
             return fmt_ts(j.get("created_at"))
