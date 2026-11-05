@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Build dist/LDM-<version>-x86_64.AppImage: ldmd, ldm (CLI), ldm-native-host, the PySide6 GUI with
+# Build dist/LDM-<version>-<arch>.AppImage (<arch> = uname -m, x86_64 or aarch64; build natively on
+# that architecture): ldmd, ldm (CLI), ldm-native-host, the PySide6 GUI with
 # a bundled CPython + trimmed PySide6/Qt, the rules, the browser extension builds, desktop file
 # and icon. Nothing here downloads Python packages; inputs are local:
 #   BIN_DIR   release binaries (default: $CARGO_TARGET_DIR/release or target/release; built if missing)
@@ -7,16 +8,17 @@
 #             and stdlib are bundled
 #   RUNTIME   AppImage type-2 runtime file (default: downloaded once from the AppImage project's
 #             type2-runtime releases into $CACHE and checked against RUNTIME_SHA256 if set)
-# Output: dist/LDM-<version>-x86_64.AppImage (not committed). The work dir is removed at the end.
+# Output: dist/LDM-<version>-<arch>.AppImage (not committed). The work dir is removed at the end.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HERE="$ROOT/packaging/appimage"
 VERSION="$(sed -n 's/^version = "\(.*\)"/\1/p' "$ROOT/Cargo.toml" | head -1)"
+ARCH="${ARCH:-$(uname -m)}"
 PYTHON="${PYTHON:-$ROOT/.venv/bin/python}"
 BIN_DIR="${BIN_DIR:-${CARGO_TARGET_DIR:-$ROOT/target}/release}"
 CACHE="${CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}/ldm-appimage}"
-RUNTIME_URL="${RUNTIME_URL:-https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-x86_64}"
-OUT="$ROOT/dist/LDM-$VERSION-x86_64.AppImage"
+RUNTIME_URL="${RUNTIME_URL:-https://github.com/AppImage/type2-runtime/releases/download/continuous/runtime-$ARCH}"
+OUT="$ROOT/dist/LDM-$VERSION-$ARCH.AppImage"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/ldm-appimage.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 A="$WORK/AppDir"
@@ -29,7 +31,7 @@ done
 command -v mksquashfs >/dev/null || { echo "mksquashfs (squashfs-tools) is required" >&2; exit 1; }
 
 if [ -z "${RUNTIME:-}" ]; then
-  RUNTIME="$CACHE/runtime-x86_64"
+  RUNTIME="$CACHE/runtime-$ARCH"
   [ -s "$RUNTIME" ] || { mkdir -p "$CACHE"; curl -fsSL -o "$RUNTIME.part" "$RUNTIME_URL"; mv "$RUNTIME.part" "$RUNTIME"; }
 fi
 if [ -n "${RUNTIME_SHA256:-}" ]; then echo "$RUNTIME_SHA256  $RUNTIME" | sha256sum -c - >/dev/null; fi
