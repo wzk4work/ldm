@@ -44,6 +44,23 @@ extension for Chromium-based browsers and Firefox.
 | ![Scheduler](assets/screenshots/en/scheduler.png) | |
 | **Scheduler**: queues with time windows and weekdays. | |
 
+## Download
+
+Prebuilt packages for **x86_64** and **aarch64 (arm64)** are attached to each
+[GitHub release](https://github.com/wzk4work/ldm/releases/latest):
+
+| Package | Install |
+|---|---|
+| `ldm_<version>_amd64.deb` / `_arm64.deb` | `sudo apt install ./ldm_<version>_<arch>.deb` (Debian 13, Ubuntu 24.10+ for the GUI) |
+| `ldm-<version>-1.x86_64.rpm` / `.aarch64.rpm` | `sudo dnf install ./ldm-<version>-1.<arch>.rpm` (Fedora; `zypper install` on openSUSE) |
+| `LDM-<version>-x86_64.AppImage` / `-aarch64.AppImage` | `chmod +x` it, then `./LDM-….AppImage --install-integration` (glibc 2.39+, FUSE) |
+| `LDM-<version>-x86_64.flatpak` / `-aarch64.flatpak` | `flatpak install --user ./LDM-….flatpak` (runtime comes from Flathub) |
+| `ldm-extension-chrome-<version>.zip`, `ldm-extension-firefox-<version>.zip` | unsigned browser extension; see [Installing](#installing) |
+
+Check downloads with `sha256sum -c --ignore-missing SHA256SUMS`. After installing a deb or rpm,
+run `systemctl --user enable --now ldmd` to start the daemon at login (optional; the GUI and the
+browser host start it on demand).
+
 ## Repository layout
 
 ```
@@ -57,7 +74,7 @@ crates/ldm-cli         ldm command-line client
 tools/ldm-testsrv      HTTP/HLS/DASH test server used by the tests
 extension/             TypeScript MV3 extension (built with esbuild)
 gui/ldm_gui/           PySide6 GUI and D-Bus service
-packaging/             install scripts, deb, AppImage, Flatpak, systemd, desktop files
+packaging/             install scripts, deb, rpm, AppImage, Flatpak, systemd, desktop files
 rules/bundled/         example site rules
 tests/e2e/             end-to-end tests (pytest)
 scripts/check.sh       runs every check
@@ -93,6 +110,7 @@ LDM for a store-installed extension. The normal build (`npm run build`) is uncha
 packaging/install.sh                 # per user, into ~/.local
 sudo packaging/install.sh --system   # system-wide, into /usr
 packaging/build-deb.sh               # dist/ldm_<version>_<arch>.deb
+packaging/build-rpm.sh               # dist/ldm-<version>-1.<arch>.rpm (needs rpmbuild)
 packaging/uninstall.sh [--purge]     # --purge also removes user data
 ```
 
@@ -114,7 +132,7 @@ Run `ldm doctor` afterwards to check ffmpeg, the socket, the daemon and the brow
 ### AppImage
 
 ```sh
-packaging/appimage/build-appimage.sh      # dist/LDM-<version>-x86_64.AppImage
+packaging/appimage/build-appimage.sh      # dist/LDM-<version>-<arch>.AppImage
 ```
 
 The image contains ldmd, the CLI, the native host and the GUI with its own CPython and a

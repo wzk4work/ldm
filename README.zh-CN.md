@@ -37,6 +37,22 @@ LDM 是 Linux 下的下载管理器，重点是检测并保存网页中的视频
 | ![计划任务](assets/screenshots/zh/scheduler.png) | |
 | **计划任务**：带时间窗口和星期设置的队列。 | |
 
+## 下载
+
+每个 [GitHub Release](https://github.com/wzk4work/ldm/releases/latest) 都附带 **x86_64** 和
+**aarch64（arm64）** 两种架构的预编译包：
+
+| 安装包 | 安装方法 |
+|---|---|
+| `ldm_<版本>_amd64.deb` / `_arm64.deb` | `sudo apt install ./ldm_<版本>_<架构>.deb`（图形界面需要 Debian 13 或 Ubuntu 24.10 及以上） |
+| `ldm-<版本>-1.x86_64.rpm` / `.aarch64.rpm` | `sudo dnf install ./ldm-<版本>-1.<架构>.rpm`（Fedora；openSUSE 用 `zypper install`） |
+| `LDM-<版本>-x86_64.AppImage` / `-aarch64.AppImage` | 先 `chmod +x`，再运行 `./LDM-….AppImage --install-integration`（需要 glibc 2.39+ 和 FUSE） |
+| `LDM-<版本>-x86_64.flatpak` / `-aarch64.flatpak` | `flatpak install --user ./LDM-….flatpak`（运行时从 Flathub 获取） |
+| `ldm-extension-chrome-<版本>.zip`、`ldm-extension-firefox-<版本>.zip` | 未签名的浏览器扩展，用法见[安装](#安装) |
+
+下载后可用 `sha256sum -c --ignore-missing SHA256SUMS` 校验。装好 deb 或 rpm 后，如果希望登录时自动启动守护进程，
+可以运行 `systemctl --user enable --now ldmd`（可选；图形界面和浏览器宿主会在需要时自动启动它）。
+
 ## 仓库结构
 
 ```
@@ -50,7 +66,7 @@ crates/ldm-cli         ldm 命令行客户端
 tools/ldm-testsrv      测试使用的 HTTP/HLS/DASH 测试服务器
 extension/             TypeScript MV3 扩展（用 esbuild 构建）
 gui/ldm_gui/           PySide6 图形界面和 D-Bus 服务
-packaging/             安装脚本、deb、AppImage、Flatpak、systemd、桌面文件
+packaging/             安装脚本、deb、rpm、AppImage、Flatpak、systemd、桌面文件
 rules/bundled/         示例站点规则
 tests/e2e/             端到端测试（pytest）
 scripts/check.sh       运行全部检查
@@ -85,6 +101,7 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt   # 图�
 packaging/install.sh                 # 为当前用户安装到 ~/.local
 sudo packaging/install.sh --system   # 系统级安装到 /usr
 packaging/build-deb.sh               # dist/ldm_<version>_<arch>.deb
+packaging/build-rpm.sh               # dist/ldm-<version>-1.<arch>.rpm (needs rpmbuild)
 packaging/uninstall.sh [--purge]     # --purge 同时删除用户数据
 ```
 
@@ -104,7 +121,7 @@ Chrome、Chromium、Edge、Brave 和 Firefox 的原生消息清单，systemd 用
 ### AppImage
 
 ```sh
-packaging/appimage/build-appimage.sh      # dist/LDM-<version>-x86_64.AppImage
+packaging/appimage/build-appimage.sh      # dist/LDM-<version>-<arch>.AppImage
 ```
 
 镜像包含 ldmd、命令行、原生消息宿主和图形界面，并自带 CPython 和精简过的 PySide6（不含 yt-dlp）。直接运行
