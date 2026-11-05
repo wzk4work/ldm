@@ -9,7 +9,7 @@ ARCH="$(dpkg --print-architecture 2>/dev/null || echo amd64)"
 BIN_SRC="${1:-$ROOT/target/release}"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
-DESTDIR="$STAGE" "$ROOT/packaging/install.sh" --system --bin-dir "$BIN_SRC" --no-systemd
+"$ROOT/packaging/stage-system.sh" "$STAGE" "$BIN_SRC"
 install -d "$STAGE/DEBIAN"
 cat > "$STAGE/DEBIAN/control" <<EOC
 Package: ldm
@@ -17,7 +17,7 @@ Version: $VERSION
 Architecture: $ARCH
 Maintainer: $MAINTAINER
 Depends: libc6
-Recommends: ffmpeg, python3-pyside6.qtwidgets | python3-pyside6
+Recommends: ffmpeg, python3-pyside6.qtwidgets | python3-pyside6, python3-pyside6.qtnetwork | python3-pyside6, python3-pyside6.qtdbus | python3-pyside6
 Suggests: gpg
 Section: net
 Priority: optional
