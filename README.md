@@ -1,10 +1,12 @@
 # LDM – Linux Download Manager
 
+**English** | [简体中文](README.zh-CN.md)
+
+![LDM main window with a download in progress](assets/screenshots/en/hero.png)
+
 LDM is a download manager for Linux with a focus on finding and saving video from web pages.
 It has a background daemon, a command-line client, a Qt (PySide6) desktop GUI and a browser
 extension for Chromium-based browsers and Firefox.
-
-[中文说明](#中文说明)
 
 ## Features
 
@@ -30,6 +32,17 @@ extension for Chromium-based browsers and Firefox.
   deno downloaded and verified by LDM on first use.
 - **Operations**: `ldm doctor`, `ldm diag` (redacted diagnostics bundle), `ldm metrics`
   (Prometheus text format). URLs and credentials in logs are redacted.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Main window](assets/screenshots/en/main-window.png) | ![Download progress](assets/screenshots/en/progress.png) |
+| **Main window**: downloads sorted by category, with a details panel. | **Progress**: multiple connections with live per-segment progress. |
+| ![Add download](assets/screenshots/en/add-download.png) | ![Options](assets/screenshots/en/settings.png) |
+| **Add download**: folder, file name, queue, connections and login. | **Options**: connections, limits, retries and per-host limits. |
+| ![Scheduler](assets/screenshots/en/scheduler.png) | |
+| **Scheduler**: queues with time windows and weekdays. | |
 
 ## Repository layout
 
@@ -270,20 +283,3 @@ LDM is released under the [MIT License](LICENSE). Third-party components and the
 listed in [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) (regenerate with
 `scripts/gen_third_party_notices.py`). The Flatpak also contains FFmpeg (LGPL-2.1+), and the
 AppImage contains Qt/PySide6 (LGPL-3.0) and CPython (PSF License).
-
-## 中文说明
-
-LDM 是 Linux 下的下载管理器，重点是网页视频的检测与下载。包含守护进程 `ldmd`、命令行 `ldm`、
-PySide6 图形界面 `ldm-gui`，以及支持 Chromium 和 Firefox 的 MV3 浏览器扩展。
-
-- 支持 HTTP(S)/FTP/FTPS 多连接、断点续传、限速、队列与计划任务；HLS/DASH 下载并用 ffmpeg 合并为
-  MP4，支持直播录制和字幕。不支持 DRM 加密内容。
-- 构建：`cargo build --release`；扩展 `cd extension && npm ci && npm run build`；商店版扩展用
-  `npm run build:store`（或 `LDM_STORE_BUILD=1`），输出到 `extension/dist-store/`，不含 yt-dlp 集成，
-  在 YouTube 页面不提供下载。
-- 安装：`packaging/install.sh`（当前用户）或 `packaging/build-deb.sh`（deb 包）；AppImage、Flatpak 的
-  构建步骤见上文。装好后运行 `ldm doctor` 检查环境。
-- yt-dlp 不随软件分发，首次需要时经用户同意后从官方 GitHub 发布下载并校验。
-- 页面钩子默认关闭，开启后只观察、不修改页面请求和媒体数据。
-- 本地接口的安全说明见 [SECURITY.md](SECURITY.md)；参与开发见 [CONTRIBUTING.md](CONTRIBUTING.md)。
-- 许可：MIT，见 [LICENSE](LICENSE) 与 [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES)。
