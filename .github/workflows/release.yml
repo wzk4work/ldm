@@ -1,0 +1,279 @@
+name: release
+
+# Push a tag v<version> (= Cargo.toml version) to build every package for x86_64 and aarch64 on
+# native runners and publish a GitHub release. Run it by hand (workflow_dispatch) for a dry run:
+# the same builds, uploaded as workflow artifacts only, no release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PUBLISH: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
+
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: v
+        name: Tag, Cargo.toml, extension, metainfo and CHANGELOG agree
+        env:
+          TAG: ${{ env.PUBLISH == 'true' && github.ref_name || '' }}
+        run: echo "version=$(scripts/check-version.sh "$TAG")" >> "$GITHUB_OUTPUT"
+
+  extension:
+    needs: version
+    runs-on: ubuntu-24.04
+    env:
+      V: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: extension/package-lock.json
+      - name: Build
+        working-directory: extension
+        run: npm ci && npm run build
+      - name: Zip (unsigned)
+        run: |
+          mkdir -p dist
+          (cd extension/dist/chromium && zip -X -q -r -9 "$GITHUB_WORKSPACE/dist/ldm-extension-chrome-$V.zip" .)
+          (cd extension/dist/firefox && zip -X -q -r -9 "$GITHUB_WORKSPACE/dist/ldm-extension-firefox-$V.zip" .)
+          for z in dist/*.zip; do unzip -p "$z" manifest.json | python3 -c 'import json,sys,os; m=json.load(sys.stdin); assert m["version"]==os.environ["V"], m["version"]; print(sys.argv[1], "manifest", m["version"])' "$z"; done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: extension-build
+          path: extension/dist
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-extension
+          path: dist/*.zip
+          if-no-files-found: error
+
+  packages:
+    needs: [version, extension]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, arch: x86_64, deb: amd64, file: x86-64 }
+          - { runner: ubuntu-24.04-arm, arch: aarch64, deb: arm64, file: ARM aarch64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    env:
+      V: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: System packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends rpm squashfs-tools binutils file python3-venv desktop-file-utils
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: release-${{ matrix.arch }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: extension-build
+          path: extension/dist
+
+      - name: Release binaries
+        run: scripts/build-release.sh
+      - name: Smoke test binaries
+        run: |
+          for b in ldmd ldm ldm-native-host; do file target/release/$b | tee /dev/stderr | grep -q "${{ matrix.file }}"; done
+          target/release/ldmd --version | grep -Fx "ldmd $V"
+          target/release/ldm --version | grep -Fx "ldm $V"
+          target/release/ldm --help >/dev/null
+
+      - name: .deb
+        run: |
+          deb="$(packaging/build-deb.sh)"
+          test "$(basename "$deb")" = "ldm_${V}_${{ matrix.deb }}.deb"
+          dpkg-deb -I "$deb"
+          test "$(dpkg-deb -f "$deb" Version)" = "$V" && test "$(dpkg-deb -f "$deb" Architecture)" = "${{ matrix.deb }}"
+          dpkg-deb -c "$deb" > deb.txt
+          for f in ./usr/bin/ldmd ./usr/bin/ldm ./usr/bin/ldm-gui ./usr/lib/ldm/ldm-native-host ./usr/lib/ldm/gui/ldm_gui/app.py \
+                   ./usr/lib/ldm/extension/chromium/manifest.json ./usr/lib/systemd/user/ldmd.service ./usr/share/applications/ldm.desktop \
+                   ./usr/share/metainfo/io.github.wzk4work.LDM.metainfo.xml ./usr/lib/mozilla/native-messaging-hosts/io.github.wzk4work.ldm.browser_host.json; do
+            grep -q " $f\( \|$\)" deb.txt || { echo "missing in deb: $f"; exit 1; }
+          done
+          rm deb.txt
+
+      - name: .rpm
+        run: |
+          rpm="$(packaging/build-rpm.sh)"
+          test "$(basename "$rpm")" = "ldm-${V}-1.${{ matrix.arch }}.rpm"
+          rpm -qpi "$rpm"
+          test "$(rpm -qp --qf '%{VERSION} %{ARCH}' "$rpm")" = "$V ${{ matrix.arch }}"
+          echo "--- requires"; rpm -qpR "$rpm"; echo "--- recommends"; rpm -qp --recommends "$rpm"
+          rpm -qpl "$rpm" > rpm.txt
+          for f in /usr/bin/ldmd /usr/bin/ldm /usr/bin/ldm-gui /usr/lib/ldm/ldm-native-host /usr/lib/ldm/gui/ldm_gui/app.py \
+                   /usr/lib/ldm/extension/chromium/manifest.json /usr/lib/systemd/user/ldmd.service /usr/share/applications/ldm.desktop \
+                   /usr/share/metainfo/io.github.wzk4work.LDM.metainfo.xml /usr/share/licenses/ldm/LICENSE \
+                   /etc/opt/chrome/native-messaging-hosts/io.github.wzk4work.ldm.browser_host.json; do
+            grep -qx "$f" rpm.txt || { echo "missing in rpm: $f"; exit 1; }
+          done
+          rm rpm.txt
+
+      - name: AppImage
+        run: |
+          python3 -m venv "$RUNNER_TEMP/aipy"
+          "$RUNNER_TEMP/aipy/bin/pip" install -q PySide6-Essentials
+          PYTHON="$RUNNER_TEMP/aipy/bin/python" packaging/appimage/build-appimage.sh
+          ai="dist/LDM-$V-${{ matrix.arch }}.AppImage"
+          cd "$RUNNER_TEMP" && "$GITHUB_WORKSPACE/$ai" --appimage-extract >/dev/null
+          file squashfs-root/usr/bin/ldmd | tee /dev/stderr | grep -q "${{ matrix.file }}"
+          squashfs-root/AppRun ldmd --version | grep -Fx "ldmd $V"
+          squashfs-root/AppRun ldm --version | grep -Fx "ldm $V"
+          L=squashfs-root/usr/lib/ldm; PY=$L/python
+          LD_LIBRARY_PATH=$PY/lib PYTHONHOME=$PY PYTHONPATH=$L/gui:$L/pylib PYTHONNOUSERSITE=1 $PY/bin/python3 -c \
+            'import PySide6, PySide6.QtWidgets, PySide6.QtDBus, PySide6.QtNetwork, ldm_gui; print("bundled PySide6", PySide6.__version__)'
+          rm -rf squashfs-root
+
+      - run: ls -l dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-packages-${{ matrix.arch }}
+          path: |
+            dist/*.deb
+            dist/*.rpm
+            dist/*.AppImage
+          if-no-files-found: error
+
+  flatpak:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, arch: x86_64 }
+          - { runner: ubuntu-24.04-arm, arch: aarch64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      V: ${{ needs.version.outputs.version }}
+      APP: io.github.wzk4work.LDM
+      MANIFEST: packaging/flatpak/io.github.wzk4work.LDM.yml
+      FB: ${{ github.workspace }}/../fb
+    steps:
+      - uses: actions/checkout@v7
+      - name: flatpak + flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends flatpak flatpak-builder
+          # Ubuntu 24.04 restricts unprivileged user namespaces, which bubblewrap needs
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          mkdir -p "$FB"
+      - uses: actions/cache@v6
+        with:
+          path: ${{ github.workspace }}/../fb/state
+          key: flatpak-${{ matrix.arch }}-${{ hashFiles('packaging/flatpak/io.github.wzk4work.LDM.yml', 'packaging/flatpak/cargo-sources.json') }}-${{ github.sha }}
+          restore-keys: |
+            flatpak-${{ matrix.arch }}-${{ hashFiles('packaging/flatpak/io.github.wzk4work.LDM.yml', 'packaging/flatpak/cargo-sources.json') }}-
+            flatpak-${{ matrix.arch }}-
+      - name: Build
+        run: |
+          flatpak-builder --user --install-deps-from=flathub --disable-rofiles-fuse --force-clean \
+            --state-dir="$FB/state" --repo="$FB/repo" "$FB/build" "$MANIFEST"
+      - name: Bundle
+        run: |
+          mkdir -p dist
+          flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+            "$FB/repo" "dist/LDM-$V-${{ matrix.arch }}.flatpak" "$APP"
+      - name: Smoke test (install the bundle, run it)
+        run: |
+          b="dist/LDM-$V-${{ matrix.arch }}.flatpak"
+          flatpak install --user --noninteractive --bundle "$b"
+          flatpak info --user "$APP"
+          flatpak info --user --show-metadata "$APP"
+          test "$(flatpak info --user --show-metadata "$APP" | sed -n 's/^name=//p' | head -1)" = "$APP"
+          flatpak info --user "$APP" | grep -E "Arch: ${{ matrix.arch }}"
+          flatpak run --command=ldmd "$APP" --version | grep -Fx "ldmd $V"
+          flatpak run --command=ldm "$APP" --version | grep -Fx "ldm $V"
+          flatpak run --command=ffmpeg "$APP" -hide_banner -version | head -1
+          flatpak run --command=python3 "$APP" -c 'import PySide6.QtWidgets, PySide6.QtDBus, PySide6.QtNetwork; print("PySide6", PySide6.__version__)'
+          flatpak uninstall --user --noninteractive "$APP"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-flatpak-${{ matrix.arch }}
+          path: dist/*.flatpak
+          if-no-files-found: error
+
+  assemble:
+    needs: [version, extension, packages, flatpak]
+    runs-on: ubuntu-24.04
+    env:
+      V: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: assets
+          merge-multiple: true
+      - name: FFmpeg source of the Flatpak build (LGPL), SHA256SUMS, release notes
+        run: |
+          read -r url sha < <(python3 - <<'PY'
+          import re
+          t = open("packaging/flatpak/io.github.wzk4work.LDM.yml").read()
+          m = re.search(r"- name: ffmpeg\b.*?url: (\S+)\s+sha256: (\S+)", t, re.S)
+          print(m.group(1), m.group(2))
+          PY
+          )
+          curl -fsSL -o "assets/$(basename "$url")" "$url"
+          echo "$sha  assets/$(basename "$url")" | sha256sum -c -
+          scripts/release-notes.sh "$V" > notes.md
+          cd assets && sha256sum -- * > ../SHA256SUMS && mv ../SHA256SUMS . && cat SHA256SUMS
+      - name: Expected assets
+        run: |
+          cd assets
+          for f in "ldm_${V}_amd64.deb" "ldm_${V}_arm64.deb" "ldm-${V}-1.x86_64.rpm" "ldm-${V}-1.aarch64.rpm" \
+                   "LDM-${V}-x86_64.AppImage" "LDM-${V}-aarch64.AppImage" "LDM-${V}-x86_64.flatpak" "LDM-${V}-aarch64.flatpak" \
+                   "ldm-extension-chrome-${V}.zip" "ldm-extension-firefox-${V}.zip" SHA256SUMS; do
+            test -s "$f" || { echo "missing asset $f"; exit 1; }
+          done
+          sha256sum -c SHA256SUMS
+          { echo "### LDM $V assets"; echo; echo '```'; ls -l; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-assembled
+          path: |
+            assets
+            notes.md
+          if-no-files-found: error
+
+  publish:
+    needs: [version, assemble]
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      V: ${{ needs.version.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-assembled
+      - name: gh release create
+        run: |
+          gh release create "$GITHUB_REF_NAME" --verify-tag --latest \
+            --title "LDM $V" --notes-file notes.md assets/*
+          gh release view "$GITHUB_REF_NAME" --json url,isDraft,isPrerelease,assets \
+            --jq '"\(.url) draft=\(.isDraft) prerelease=\(.isPrerelease)", (.assets[] | "\(.name) \(.size)")'
